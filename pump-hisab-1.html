@@ -1,0 +1,3055 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pump Hisab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+  :root{
+    --bg: #132229;
+    --bg-deep: #0D1A20;
+    --surface: #1C323B;
+    --surface-raised: #23404A;
+    --paper: #EFE7D3;
+    --paper-line: #D9CDAE;
+    --ink: #F2ECDD;
+    --ink-dim: #B9C6C6;
+    --ink-on-paper: #23302E;
+    --ink-on-paper-dim: #6B6151;
+    --petrol: #C68A3D;
+    --petrol-dim: #8A6631;
+    --diesel: #3F7A5D;
+    --diesel-dim: #2F5C46;
+    --party: #7C6FA8;
+    --party-dim: #5B4F80;
+    --employee: #4A7FA5;
+    --employee-dim: #3A6483;
+    --loss: #B44B3D;
+    --ok: #6FAE8A;
+    --line: rgba(242,236,221,0.14);
+    --radius-s: 6px;
+    --radius-m: 10px;
+    --shadow: 0 8px 24px rgba(0,0,0,0.28);
+    --font-display: 'Fraunces', serif;
+    --font-body: 'Inter', sans-serif;
+  }
+  *{ box-sizing: border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  .app{ max-width: 560px; margin: 0 auto; padding: 20px 16px 64px; }
+
+  header{ display:flex; flex-direction: column; gap: 4px; margin-bottom: 18px; }
+  .brand{
+    font-family: var(--font-display);
+    font-weight: 600; font-size: 26px; letter-spacing: 0.2px;
+    display:flex; align-items:baseline; gap: 8px;
+  }
+  .brand small{ font-family: var(--font-body); font-size: 13px; color: var(--ink-dim); font-weight: 500; }
+  .pump-name-input{
+    margin-top: 8px; width: 100%; box-sizing: border-box; padding: 8px 10px; background: transparent;
+    border: 1px dashed var(--line); border-radius: var(--radius-s); color: var(--ink); font-family: var(--font-body);
+    font-size: 13px;
+  }
+  .pump-name-input:focus{ outline: none; border-color: var(--petrol); border-style: solid; }
+  .pump-name-input::placeholder{ color: var(--ink-dim); }
+
+  .month-nav{
+    margin-top: 10px; display:flex; align-items:center; justify-content: space-between;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 8px 6px;
+  }
+  .month-nav button{
+    width: 36px; height: 36px; border-radius: 50%; border: none; background: transparent;
+    color: var(--ink); font-size: 18px; cursor: pointer; display:flex; align-items:center; justify-content:center;
+    transition: background 0.15s ease;
+  }
+  .month-nav button:hover{ background: var(--surface-raised); }
+  .month-label{ font-family: var(--font-display); font-size: 17px; font-weight: 500; letter-spacing: 0.3px; }
+
+  .summary-scroll{ display:flex; gap: 10px; overflow-x: auto; padding: 4px 2px 10px; margin: 16px -2px 4px; scrollbar-width: none; }
+  .summary-scroll::-webkit-scrollbar{ display:none; }
+  .stat-card{ flex: 0 0 auto; min-width: 138px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 12px 14px; }
+  .stat-card .label{ font-size: 11.5px; color: var(--ink-dim); margin-bottom: 6px; }
+  .stat-card .value{ font-family: var(--font-display); font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat-card.profit .value{ color: #8FBF9F; }
+  .stat-card.loss .value{ color: var(--loss); }
+  .stat-card.cash .value{ color: var(--petrol); }
+  .stat-card.credit .value{ color: var(--party); }
+
+  .add-btn{
+    width: 100%; padding: 14px; background: var(--petrol); color: #1B140A; border: none; border-radius: var(--radius-m);
+    font-family: var(--font-body); font-weight: 700; font-size: 15px; cursor: pointer; margin-bottom: 18px;
+    transition: transform 0.1s ease, background 0.15s ease;
+  }
+  .add-btn:hover{ background: #D89948; }
+  .add-btn:active{ transform: scale(0.98); }
+  .add-btn.secondary{
+    background: transparent; color: var(--ink); border: 1px solid var(--line); font-weight: 600; margin-bottom: 20px;
+  }
+  .add-btn.secondary:hover{ border-color: var(--petrol); color: var(--petrol); }
+
+  .form-panel{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 18px 16px; margin-bottom: 20px; display: none; }
+  .form-panel.open{ display:block; }
+  .form-panel h3{ font-family: var(--font-display); font-size: 17px; font-weight: 600; margin: 0 0 14px; }
+  .field-row{ margin-bottom: 12px; }
+  .field-row label{ display:block; font-size: 12.5px; color: var(--ink-dim); margin-bottom: 5px; }
+  .field-row input{
+    width: 100%; padding: 10px 12px; background: var(--bg-deep); border: 1px solid var(--line); border-radius: var(--radius-s);
+    color: var(--ink); font-family: var(--font-body); font-size: 15px; font-variant-numeric: tabular-nums;
+  }
+  .field-row input:focus{ outline: none; border-color: var(--petrol); }
+  .field-row input::placeholder{ color: var(--ink-dim); opacity: 0.6; }
+  .field-row input.mismatch{ border-color: var(--loss); background: rgba(180,75,61,0.10); }
+
+  .fuel-block{ border-left: 3px solid var(--petrol-dim); padding-left: 12px; margin-bottom: 18px; }
+  .fuel-block.diesel{ border-left-color: var(--diesel-dim); }
+  .fuel-block-head{ display:flex; align-items:center; justify-content: space-between; margin-bottom: 10px; }
+  .fuel-block-title{ font-size: 14px; font-weight: 700; color: var(--petrol); }
+  .fuel-block.diesel .fuel-block-title{ color: var(--diesel); }
+  .fuel-totals{ font-size: 12px; color: var(--ink-dim); text-align: right; }
+  .fuel-totals b{ color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  .two-col{ display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .three-col{ display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+
+  .nozzle-row{ background: var(--bg-deep); border: 1px solid var(--line); border-radius: var(--radius-s); padding: 10px 10px 4px; margin-bottom: 10px; }
+  .nozzle-row-head{ display:flex; align-items:center; gap: 8px; margin-bottom: 8px; }
+  .nozzle-row-head input.noz-label{ flex:1; margin: 0; padding: 6px 8px; font-size: 12.5px; font-weight: 600; }
+  .nozzle-remove{ background: none; border: none; color: var(--loss); font-size: 12px; cursor: pointer; padding: 2px 6px; flex-shrink:0; }
+  .nozzle-live{ font-size: 12px; color: var(--ink-dim); margin: 6px 0 10px; font-variant-numeric: tabular-nums; line-height:1.6; }
+  .nozzle-live b{ color: var(--petrol); }
+  .fuel-block.diesel .nozzle-live b{ color: var(--diesel); }
+  .nozzle-live .mismatch-warn{ color: var(--loss); font-weight: 600; display:block; }
+  .nozzle-live .match-ok{ color: var(--ok); font-weight: 600; }
+  .add-nozzle-btn{
+    width: 100%; padding: 8px; background: transparent; border: 1px dashed var(--line); border-radius: var(--radius-s);
+    color: var(--ink-dim); font-size: 12.5px; cursor: pointer; margin-bottom: 4px;
+  }
+  .add-nozzle-btn:hover{ border-color: var(--petrol); color: var(--petrol); }
+  .fuel-block.diesel .add-nozzle-btn:hover{ border-color: var(--diesel); color: var(--diesel); }
+
+  .tank-section-title{ font-size: 12.5px; font-weight: 700; color: var(--ink-dim); margin: 4px 0 8px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .tank-row{ background: var(--bg-deep); border: 1px solid var(--line); border-radius: var(--radius-s); padding: 10px 10px 4px; margin-bottom: 10px; }
+  .tank-row-head{ display:flex; align-items:center; gap: 8px; margin-bottom: 8px; }
+  .tank-row-head input.tank-label{ flex:1; margin: 0; padding: 6px 8px; font-size: 12.5px; font-weight: 600; }
+  .tank-remove{ background: none; border: none; color: var(--loss); font-size: 12px; cursor: pointer; padding: 2px 6px; flex-shrink:0; }
+  .tank-live{ font-size: 12px; color: var(--ink-dim); margin: 6px 0 10px; font-variant-numeric: tabular-nums; line-height:1.6; }
+  .tank-live .mismatch-warn{ color: var(--loss); font-weight: 600; display:block; }
+  .tank-live .match-ok{ color: var(--ok); font-weight: 600; }
+  .tank-row-actions{ display:flex; justify-content: flex-end; margin: -4px 0 8px; }
+  .dip-chart-toggle{
+    background: none; border: none; color: var(--petrol); font-size: 11.5px; font-weight: 600; cursor: pointer; padding: 2px 4px; text-decoration: underline;
+  }
+  .fuel-block.diesel .dip-chart-toggle{ color: var(--diesel); }
+  .dip-chart-editor{
+    background: rgba(255,255,255,0.03); border: 1px dashed var(--line); border-radius: var(--radius-s);
+    padding: 10px; margin-bottom: 10px; display:none;
+  }
+  .dip-chart-editor.open{ display:block; }
+  .dip-chart-editor-title{ font-size: 11.5px; color: var(--ink-dim); margin-bottom: 8px; line-height: 1.5; }
+  .dip-point-row{ display:grid; grid-template-columns: 1fr 1fr auto; gap: 8px; margin-bottom: 6px; align-items:center; }
+  .dip-point-row input{ padding: 7px 8px; font-size: 13px; }
+  .dip-point-remove{ background:none; border:none; color: var(--loss); font-size: 16px; cursor:pointer; padding: 0 4px; }
+  .dip-chart-editor-actions{ display:flex; gap: 8px; margin-top: 6px; }
+  .dip-chart-editor-actions button{
+    flex:1; padding: 8px; border-radius: var(--radius-s); border: 1px solid var(--line); background: transparent;
+    color: var(--ink); font-size: 12.5px; font-weight: 600; cursor: pointer;
+  }
+  .dip-chart-editor-actions .save-chart-btn{ background: var(--petrol); color: #1B140A; border: none; }
+  .fuel-block.diesel .dip-chart-editor-actions .save-chart-btn{ background: var(--diesel); color: #08150F; }
+  .dip-chart-status{ font-size: 11px; color: var(--ink-dim); margin-top: 4px; }
+  .add-dip-point-btn{
+    width: 100%; padding: 6px; background: transparent; border: 1px dashed var(--line); border-radius: var(--radius-s);
+    color: var(--ink-dim); font-size: 12px; cursor: pointer; margin-top: 2px;
+  }
+  .dip-import-row{ margin-bottom: 8px; }
+  .dip-import-label{ display:block; font-size: 11.5px; color: var(--petrol); font-weight: 600; margin-bottom: 4px; }
+  .fuel-block.diesel .dip-import-label{ color: var(--diesel); }
+  .dip-import-row input[type="file"]{ width: 100%; font-size: 11.5px; color: var(--ink-dim); }
+  .dip-preset-row{ display:flex; gap: 8px; }
+  .dip-preset-btn{
+    flex:1; padding: 8px 6px; border-radius: var(--radius-s); border: 1px solid var(--petrol-dim); background: rgba(198,138,61,0.10);
+    color: var(--petrol); font-size: 11.5px; font-weight: 600; cursor: pointer;
+  }
+  .fuel-block.diesel .dip-preset-btn{ border-color: var(--diesel-dim); background: rgba(63,122,93,0.12); color: var(--diesel); }
+  .dip-preset-btn:hover{ background: rgba(198,138,61,0.2); }
+  .fuel-block.diesel .dip-preset-btn:hover{ background: rgba(63,122,93,0.22); }
+  .dip-import-status{ font-size: 11.5px; color: var(--ink-dim); margin: 4px 0 10px; min-height: 14px; }
+  .dip-chart-compact-summary{ font-size: 12.5px; color: var(--ink); background: rgba(255,255,255,0.04); border: 1px solid var(--line); border-radius: var(--radius-s); padding: 8px 10px; margin-bottom: 8px; }
+  .dip-chart-compact-summary b{ color: var(--petrol); }
+  .fuel-block.diesel .dip-chart-compact-summary b{ color: var(--diesel); }
+  .show-all-points-btn{
+    flex:1; padding: 8px; border-radius: var(--radius-s); border: 1px solid var(--line); background: transparent;
+    color: var(--ink); font-size: 12.5px; font-weight: 600; cursor: pointer;
+  }
+
+  .add-tank-btn{
+    width: 100%; padding: 8px; background: transparent; border: 1px dashed var(--line); border-radius: var(--radius-s);
+    color: var(--ink-dim); font-size: 12.5px; cursor: pointer; margin-bottom: 10px;
+  }
+  .add-tank-btn:hover{ border-color: var(--petrol); color: var(--petrol); }
+  .fuel-block.diesel .add-tank-btn:hover{ border-color: var(--diesel); color: var(--diesel); }
+  .stock-variation{
+    font-size: 12.5px; line-height: 1.7; color: var(--ink-dim);
+    background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: var(--radius-s);
+    padding: 8px 10px; margin-bottom: 4px;
+  }
+  .stock-variation b{ color: var(--ink); font-variant-numeric: tabular-nums; }
+  .stock-variation .short{ color: var(--loss); font-weight: 700; }
+  .stock-variation .surplus{ color: var(--ok); font-weight: 700; }
+  .stock-variation .match{ color: var(--ok); font-weight: 700; }
+
+  .party-section{ border-left: 3px solid var(--party-dim); padding-left: 12px; margin-bottom: 18px; }
+  .cash-section{ border-left: 3px solid var(--petrol-dim); padding-left: 12px; margin-bottom: 18px; }
+  .cash-section-title{ font-size: 14px; font-weight: 700; color: var(--petrol); margin-bottom: 10px; }
+  .digital-section{ border-left: 3px solid var(--diesel-dim); padding-left: 12px; margin-bottom: 18px; }
+  .digital-section-title{ font-size: 14px; font-weight: 700; color: var(--diesel); margin-bottom: 10px; }
+  .expense-section{ border-left: 3px solid var(--loss); padding-left: 12px; margin-bottom: 18px; }
+  .expense-section-title{ font-size: 14px; font-weight: 700; color: var(--loss); margin-bottom: 10px; }
+  .selfuse-section{ border-left: 3px solid var(--party-dim); padding-left: 12px; margin-bottom: 18px; }
+  .selfuse-section-title{ font-size: 14px; font-weight: 700; color: var(--party); margin-bottom: 10px; }
+  .item-row{ display:grid; grid-template-columns: 1.3fr 1fr auto; gap: 8px; margin-bottom: 8px; align-items:center; }
+  .item-row input{ padding: 8px 10px; }
+  .item-remove{ background: none; border: none; color: var(--loss); font-size: 12px; cursor: pointer; padding: 2px 6px; }
+  .add-digital-btn, .add-expense-btn, .add-selfuse-btn{
+    width: 100%; padding: 8px; background: transparent; border: 1px dashed var(--line); border-radius: var(--radius-s);
+    color: var(--ink-dim); font-size: 12.5px; cursor: pointer; margin-bottom: 4px;
+  }
+  .add-digital-btn:hover{ border-color: var(--diesel); color: var(--diesel); }
+  .add-expense-btn:hover{ border-color: var(--loss); color: var(--loss); }
+  .add-selfuse-btn:hover{ border-color: var(--party); color: var(--party); }
+  .item-total{ font-size: 12.5px; color: var(--ink-dim); margin: 4px 0 12px; }
+  .item-total b{ color: var(--ink); font-variant-numeric: tabular-nums; }
+  .denom-row{ display:grid; grid-template-columns: 1fr 1fr auto; gap: 8px; margin-bottom: 8px; align-items:center; }
+  .denom-row input{ padding: 8px 10px; }
+  .denom-remove{ background: none; border: none; color: var(--loss); font-size: 12px; cursor: pointer; padding: 2px 6px; }
+  .add-denom-btn{
+    width: 100%; padding: 8px; background: transparent; border: 1px dashed var(--line); border-radius: var(--radius-s);
+    color: var(--ink-dim); font-size: 12.5px; cursor: pointer; margin-bottom: 4px;
+  }
+  .add-denom-btn:hover{ border-color: var(--petrol); color: var(--petrol); }
+  .denom-total{ font-size: 12.5px; color: var(--ink-dim); margin: 4px 0 12px; }
+  .denom-total b{ color: var(--petrol); font-variant-numeric: tabular-nums; }
+  .party-section-title{ font-size: 14px; font-weight: 700; color: var(--party); margin-bottom: 10px; }
+  .party-row{ background: var(--bg-deep); border: 1px solid var(--line); border-radius: var(--radius-s); padding: 10px 10px 4px; margin-bottom: 10px; }
+  .party-row-head{ display:flex; align-items:center; gap: 8px; margin-bottom: 8px; }
+  .party-row-head input.party-name{ flex:1; margin:0; padding: 6px 8px; font-size: 13px; font-weight: 600; }
+  .party-remove{ background: none; border: none; color: var(--loss); font-size: 12px; cursor: pointer; padding: 2px 6px; flex-shrink:0; }
+  .party-live{ font-size: 12px; color: var(--ink-dim); margin: 6px 0 10px; line-height:1.6; }
+  .party-live b{ color: var(--party); }
+  .party-live .mismatch-warn{ color: var(--loss); font-weight: 600; display:block; }
+  .party-live .match-ok{ color: var(--ok); font-weight: 600; }
+  .add-party-btn{
+    width: 100%; padding: 8px; background: transparent; border: 1px dashed var(--line); border-radius: var(--radius-s);
+    color: var(--ink-dim); font-size: 12.5px; cursor: pointer; margin-bottom: 4px;
+  }
+  .add-party-btn:hover{ border-color: var(--party); color: var(--party); }
+  .employee-section{ border-left: 3px solid var(--employee-dim); padding-left: 12px; margin-bottom: 18px; }
+  .employee-section-title{ font-size: 14px; font-weight: 700; color: var(--employee); margin-bottom: 10px; }
+  .employee-row{ background: var(--bg-deep); border: 1px solid var(--line); border-radius: var(--radius-s); padding: 10px 10px 4px; margin-bottom: 10px; }
+  .employee-row-head{ display:flex; align-items:center; gap: 8px; margin-bottom: 8px; }
+  .employee-row-head input.employee-name{ flex:1; margin:0; padding: 6px 8px; font-size: 13px; font-weight: 600; }
+  .employee-remove{ background: none; border: none; color: var(--loss); font-size: 12px; cursor: pointer; padding: 2px 6px; flex-shrink:0; }
+  .employee-live{ font-size: 12px; color: var(--ink-dim); margin: 6px 0 10px; line-height:1.6; }
+  .employee-live b{ color: var(--employee); }
+  .add-employee-btn{
+    width: 100%; padding: 8px; background: transparent; border: 1px dashed var(--line); border-radius: var(--radius-s);
+    color: var(--ink-dim); font-size: 12.5px; cursor: pointer; margin-bottom: 4px;
+  }
+  .add-employee-btn:hover{ border-color: var(--employee); color: var(--employee); }
+
+  .live-preview{ background: rgba(198,138,61,0.08); border: 1px solid rgba(198,138,61,0.25); border-radius: var(--radius-m); padding: 12px 14px; margin-bottom: 18px; }
+  .live-preview-title{ font-size: 12px; color: var(--ink-dim); margin-bottom: 8px; }
+  .live-row{ display:flex; justify-content: space-between; font-size: 13.5px; padding: 3px 0; }
+  .live-row .k{ color: var(--ink-dim); }
+  .live-row .v{ font-weight: 600; font-variant-numeric: tabular-nums; }
+  .live-row.total{ border-top: 1px solid var(--line); margin-top: 6px; padding-top: 8px; font-size: 15px; }
+  .live-row.total .v.pos{ color: #8FBF9F; }
+  .live-row.total .v.neg{ color: var(--loss); }
+
+  .form-actions{ display:flex; gap: 10px; margin-top: 6px; }
+  .form-actions button{
+    flex:1; padding: 12px; border-radius: var(--radius-s); border: none;
+    font-family: var(--font-body); font-weight: 600; font-size: 14px; cursor: pointer;
+  }
+  .btn-save{ background: var(--petrol); color: #1B140A; }
+  .btn-pdf{
+    width: 100%; padding: 12px; border-radius: var(--radius-s); border: 1px solid var(--line); background: transparent;
+    color: var(--ink); font-family: var(--font-body); font-weight: 600; font-size: 14px; cursor: pointer; margin-bottom: 10px;
+  }
+  .btn-pdf:hover{ border-color: var(--petrol); color: var(--petrol); }
+  .form-status-msg{ font-size: 12.5px; color: var(--ink-dim); text-align: center; margin-bottom: 8px; min-height: 16px; }
+  .form-status-msg.err{ color: var(--loss); }
+  .global-toast{
+    position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px);
+    background: var(--surface-raised); color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius-m);
+    padding: 12px 18px; font-size: 13px; max-width: 90%; text-align: center; box-shadow: var(--shadow);
+    opacity: 0; pointer-events: none; transition: opacity 0.2s ease, transform 0.2s ease; z-index: 999;
+  }
+  .global-toast.show{ opacity: 1; transform: translate(-50%, 0); }
+  .global-toast.err{ border-color: rgba(180,75,61,0.5); color: var(--loss); }
+  .btn-cancel{ background: transparent; color: var(--ink-dim); border: 1px solid var(--line) !important; }
+  .btn-delete{ background: transparent; color: var(--loss); border: 1px solid rgba(180,75,61,0.4) !important; }
+  .btn-delete.confirming{ background: var(--loss); color: #fff; }
+
+  .list-heading{ font-family: var(--font-display); font-size: 16px; font-weight: 600; margin: 4px 0 10px; color: var(--ink); }
+  .ledger{ background: var(--paper); border-radius: var(--radius-m); overflow: hidden; box-shadow: var(--shadow); }
+  .entry-row{
+    display:flex; align-items:center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--paper-line);
+    cursor: pointer; color: var(--ink-on-paper); transition: background 0.12s ease;
+  }
+  .entry-row:last-child{ border-bottom:none; }
+  .entry-row:hover{ background: rgba(0,0,0,0.03); }
+  .entry-date{ flex: 0 0 46px; text-align:center; }
+  .entry-date .day{ font-family: var(--font-display); font-size: 19px; font-weight: 700; line-height: 1; }
+  .entry-date .wd{ font-size: 10.5px; color: var(--ink-on-paper-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+  .entry-mid{ flex:1; min-width:0; }
+  .entry-fuels{ font-size: 12.5px; color: var(--ink-on-paper-dim); }
+  .entry-fuels .p{ color: var(--petrol-dim); font-weight:600; }
+  .entry-fuels .d{ color: var(--diesel-dim); font-weight:600; }
+  .entry-flag{ color: var(--loss); font-weight: 700; }
+  .entry-sales{ font-size: 14.5px; font-weight: 600; margin-top: 2px; }
+  .entry-right{ text-align: right; flex: 0 0 auto; }
+  .entry-pdf-btn{
+    flex: 0 0 auto; background: none; border: none; font-size: 17px; cursor: pointer;
+    padding: 4px 2px 4px 8px; opacity: 0.65; line-height: 1;
+  }
+  .entry-pdf-btn:hover{ opacity: 1; }
+  .entry-net{ font-size: 13.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .entry-net.loss{ color: var(--loss); }
+  .entry-net.profit{ color: var(--diesel-dim); }
+  .entry-net-label{ font-size: 10px; color: var(--ink-on-paper-dim); }
+
+  .party-balances{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-m); overflow: hidden; margin-top: 8px; }
+  .backup-box{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 14px; margin-top: 8px; }
+  .backup-hint{ font-size: 12px; color: var(--ink-dim); line-height: 1.5; margin-bottom: 12px; }
+  .backup-btn{
+    display:block; width: 100%; padding: 12px; border-radius: var(--radius-s); border: 1px solid var(--petrol-dim);
+    background: rgba(198,138,61,0.10); color: var(--petrol); font-family: var(--font-body); font-weight: 600;
+    font-size: 14px; cursor: pointer; text-align: center; margin-bottom: 10px; box-sizing: border-box;
+  }
+  .backup-btn:hover{ background: rgba(198,138,61,0.2); }
+  .backup-status{ font-size: 12px; color: var(--ink-dim); text-align: center; min-height: 16px; }
+  .backup-textarea{
+    width: 100%; box-sizing: border-box; padding: 10px 12px; background: var(--bg-deep); border: 1px solid var(--line);
+    border-radius: var(--radius-s); color: var(--ink); font-family: monospace; font-size: 11px; resize: vertical;
+  }
+  .backup-textarea-row{ position: relative; margin-bottom: 10px; }
+  .backup-textarea-row .backup-textarea{ margin-bottom: 0; padding-right: 40px; }
+  .clear-textarea-btn{
+    position: absolute; top: 8px; right: 8px; background: var(--surface-raised); border: 1px solid var(--line);
+    border-radius: var(--radius-s); color: var(--ink-dim); font-size: 13px; cursor: pointer; padding: 4px 7px; line-height: 1;
+  }
+  .clear-textarea-btn:hover{ color: var(--loss); border-color: rgba(180,75,61,0.4); }
+  .party-balance-row{ display:flex; justify-content: space-between; align-items:center; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 13.5px; gap: 8px; }
+  .party-balance-row .pname{ flex: 1; min-width: 0; }
+  .party-opening-edit-btn{ background: none; border: none; color: var(--ink-dim); font-size: 14px; cursor: pointer; padding: 2px 4px; flex-shrink: 0; }
+  .party-opening-edit-btn:hover{ color: var(--petrol); }
+  .ledger-pdf-btn{ background: none; border: none; font-size: 15px; cursor: pointer; padding: 2px 4px; flex-shrink: 0; opacity: 0.7; }
+  .ledger-pdf-btn:hover{ opacity: 1; }
+  .employee-opening-edit-btn{ background: none; border: none; color: var(--ink-dim); font-size: 14px; cursor: pointer; padding: 2px 4px; flex-shrink: 0; }
+  .employee-opening-edit-btn:hover{ color: var(--employee); }
+  .employee-opening-input{
+    width: 110px; padding: 7px 9px; background: var(--bg-deep); border: 1px solid var(--line); border-radius: var(--radius-s);
+    color: var(--ink); font-size: 13px;
+  }
+  .employee-opening-save-btn{
+    background: var(--employee); color: #fff; border: none; border-radius: var(--radius-s); padding: 7px 12px;
+    font-size: 12.5px; font-weight: 600; cursor: pointer;
+  }
+  .employee-opening-cancel-btn{ background: none; border: none; color: var(--ink-dim); font-size: 15px; cursor: pointer; padding: 2px 6px; }
+  .party-opening-editing{ flex-wrap: wrap; }
+  .party-opening-input{
+    width: 110px; padding: 7px 9px; background: var(--bg-deep); border: 1px solid var(--line); border-radius: var(--radius-s);
+    color: var(--ink); font-size: 13px;
+  }
+  .party-opening-save-btn{
+    background: var(--petrol); color: #1B140A; border: none; border-radius: var(--radius-s); padding: 7px 12px;
+    font-size: 12.5px; font-weight: 600; cursor: pointer;
+  }
+  .party-opening-cancel-btn{ background: none; border: none; color: var(--ink-dim); font-size: 15px; cursor: pointer; padding: 2px 6px; }
+  .party-balance-row:last-child{ border-bottom: none; }
+  .party-balance-row .pname{ font-weight: 600; }
+  .party-balance-row .pval{ font-variant-numeric: tabular-nums; font-weight: 700; }
+  .party-balance-row .pval.owe{ color: var(--party); }
+  .party-balance-row .pval.zero{ color: var(--ink-dim); }
+
+  .empty-state{ background: var(--surface); border: 1px dashed var(--line); border-radius: var(--radius-m); padding: 28px 20px; text-align: center; color: var(--ink-dim); font-size: 14px; line-height: 1.5; }
+  .status-msg{ text-align:center; font-size: 13px; color: var(--ink-dim); padding: 20px 0; }
+
+  .photo-draft-block{ border: 1px dashed var(--petrol-dim); border-radius: var(--radius-s); padding: 12px; margin-bottom: 14px; background: rgba(198,138,61,0.06); }
+  .photo-draft-label{ display:block; font-size: 12.5px; color: var(--petrol); font-weight: 600; margin-bottom: 8px; }
+  .photo-draft-block input[type="file"]{ width: 100%; font-size: 12.5px; color: var(--ink-dim); }
+  .photo-draft-status{ font-size: 12.5px; color: var(--ink-dim); margin-top: 8px; min-height: 16px; }
+  .ai-note{ font-size: 12.5px; line-height: 1.55; color: var(--ink); background: rgba(198,138,61,0.14); border: 1px solid rgba(198,138,61,0.35); border-radius: var(--radius-s); padding: 10px 12px; margin-bottom: 14px; }
+  .ai-note b{ color: var(--petrol); }
+  .field-row input.ai-filled, .nozzle-row.ai-filled, .party-row.ai-filled{ border-color: var(--petrol); background: rgba(198,138,61,0.10); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div id="globalToast" class="global-toast"></div>
+  <header>
+    <div class="brand">Pump Hisab <small>Nozzle + Creditors Ledger</small></div>
+    <input type="text" id="pumpNameInput" class="pump-name-input" placeholder="Aapke Pump ka Naam (PDF letterhead ke liye, optional)">
+  </header>
+
+  <div class="month-nav">
+    <button id="prevMonth" aria-label="Pichla mahina">&#8249;</button>
+    <div class="month-label" id="monthLabel">—</div>
+    <button id="nextMonth" aria-label="Agla mahina">&#8250;</button>
+  </div>
+
+  <div class="summary-scroll" id="summaryScroll"></div>
+
+  <button class="add-btn" id="toggleFormBtn">+ Naya Hisab Jodo</button>
+
+  <div class="form-panel" id="formPanel">
+    <h3 id="formTitle">Aaj ka Hisab</h3>
+
+    <div class="photo-draft-block">
+      <label class="photo-draft-label">Photo se Bharo (AI Draft)</label>
+      <input type="file" accept="image/*" id="f_photoInput">
+      <div class="photo-draft-status" id="photoDraftStatus"></div>
+    </div>
+    <div id="aiNote" class="ai-note" style="display:none;"></div>
+
+    <div class="field-row">
+      <label>Tareekh (Date)</label>
+      <input type="date" id="f_date">
+    </div>
+
+    <div class="fuel-block" data-fuel="petrol">
+      <div class="fuel-block-head">
+        <div class="fuel-block-title">Petrol</div>
+        <div class="fuel-totals" id="petrolTotals">0 L · ₹0</div>
+      </div>
+      <div class="two-col">
+        <div class="field-row">
+          <label>Retail Sale Rate ₹/L</label>
+          <input type="number" inputmode="decimal" id="petrolRate" placeholder="0">
+        </div>
+        <div class="field-row">
+          <label>Cost Rate ₹/L (Profit ke liye, optional)</label>
+          <input type="number" inputmode="decimal" id="petrolCost" placeholder="0">
+        </div>
+      </div>
+      <div id="petrolNozzles"></div>
+      <button type="button" class="add-nozzle-btn" data-fuel="petrol">+ Nozzle Jodo</button>
+
+      <div class="tank-section-title">Tank / Dip Reading</div>
+      <div id="petrolTanks"></div>
+      <button type="button" class="add-tank-btn" data-fuel="petrol">+ Tank Jodo</button>
+      <div class="stock-variation" id="petrolVariation"></div>
+    </div>
+
+    <div class="fuel-block diesel" data-fuel="diesel">
+      <div class="fuel-block-head">
+        <div class="fuel-block-title">Diesel</div>
+        <div class="fuel-totals" id="dieselTotals">0 L · ₹0</div>
+      </div>
+      <div class="two-col">
+        <div class="field-row">
+          <label>Retail Sale Rate ₹/L</label>
+          <input type="number" inputmode="decimal" id="dieselRate" placeholder="0">
+        </div>
+        <div class="field-row">
+          <label>Cost Rate ₹/L (Profit ke liye, optional)</label>
+          <input type="number" inputmode="decimal" id="dieselCost" placeholder="0">
+        </div>
+      </div>
+      <div id="dieselNozzles"></div>
+      <button type="button" class="add-nozzle-btn" data-fuel="diesel">+ Nozzle Jodo</button>
+
+      <div class="tank-section-title">Tank / Dip Reading</div>
+      <div id="dieselTanks"></div>
+      <button type="button" class="add-tank-btn" data-fuel="diesel">+ Tank Jodo</button>
+      <div class="stock-variation" id="dieselVariation"></div>
+    </div>
+
+    <div class="party-section">
+      <div class="party-section-title">Creditors (Udhaar)</div>
+      <div id="partyRows"></div>
+      <button type="button" class="add-party-btn" id="addPartyBtn">+ Party Jodo</button>
+    </div>
+    <datalist id="knownPartyNames"></datalist>
+
+    <div class="employee-section">
+      <div class="employee-section-title">Employee/Salesman Advance</div>
+      <div id="employeeRows"></div>
+      <button type="button" class="add-employee-btn" id="addEmployeeBtn">+ Employee Jodo</button>
+    </div>
+    <datalist id="knownEmployeeNames"></datalist>
+
+    <div class="digital-section">
+      <div class="digital-section-title">Digital Payments (Phone Pe / ATM / A/c)</div>
+      <div id="digitalRows"></div>
+      <button type="button" class="add-digital-btn" id="addDigitalBtn">+ Payment Jodo</button>
+      <datalist id="knownDigitalModes">
+        <option value="Phone Pe">
+        <option value="Google Pay">
+        <option value="ATM/Card">
+        <option value="A/c Transfer">
+        <option value="BPCL">
+      </datalist>
+    </div>
+
+    <div class="expense-section">
+      <div class="expense-section-title">Kharch (Har Item Alag Se)</div>
+      <div id="expenseRows"></div>
+      <button type="button" class="add-expense-btn" id="addExpenseBtn">+ Kharch Jodo</button>
+    </div>
+
+    <div class="selfuse-section">
+      <div class="selfuse-section-title">Self Use</div>
+      <div id="selfUseRows"></div>
+      <button type="button" class="add-selfuse-btn" id="addSelfUseBtn">+ Self Use Jodo</button>
+    </div>
+
+    <div class="cash-section">
+      <div class="cash-section-title">Cash Ginti (Note/Coin Count)</div>
+      <div id="cashDenomRows"></div>
+      <button type="button" class="add-denom-btn" id="addDenomBtn">+ Note/Coin Jodo</button>
+    </div>
+
+    <div class="field-row">
+      <label>Actual Cash Mila ₹ (ginti se auto bharega, ya khud daal sakte hain)</label>
+      <input type="number" inputmode="decimal" id="f_cashActual" placeholder="Khaali chhodein to hisab se nikaal denge">
+    </div>
+
+    <div class="live-preview" id="livePreview"></div>
+
+    <button type="button" class="btn-pdf" id="pdfBtn">📄 PDF Banao</button>
+    <div class="form-status-msg" id="formStatusMsg"></div>
+
+    <div class="form-actions">
+      <button class="btn-cancel" id="cancelBtn">Cancel</button>
+      <button class="btn-delete" id="deleteBtn" style="display:none;">Hatao</button>
+      <button class="btn-save" id="saveBtn">Save Karo</button>
+    </div>
+  </div>
+
+  <div class="list-heading">Is Mahine ki Entries</div>
+  <div id="listArea"><div class="status-msg">Load ho raha hai...</div></div>
+
+  <div class="list-heading" style="margin-top:22px;">Party Balances (Sabhi Time)</div>
+  <div id="partyBalanceArea"></div>
+
+  <div class="list-heading" style="margin-top:22px;">Employee Balances (Sabhi Time)</div>
+  <div id="employeeBalanceArea"></div>
+
+  <div class="list-heading" style="margin-top:22px;">Cloud Connectivity Test</div>
+  <div class="backup-box">
+    <div class="backup-hint">Cloud backup jodne se pehle check karte hain ki is app se internet par kisi bahar ke server tak connection ban pata hai ya nahi.</div>
+    <button type="button" class="backup-btn" id="cloudTestBtn">🌐 Internet Connection Test Karo</button>
+    <div class="backup-status" id="cloudTestStatus"></div>
+  </div>
+
+  <div class="list-heading" style="margin-top:22px;">Data Backup</div>
+  <div class="backup-box">
+    <div class="backup-hint">Agar app dobara kholne par data ghayab dikhe, to yahan se apna last backup wapas la sakte hain. Roz kaam khatam karne ke baad "Backup Text Banao" dabakar us text ko WhatsApp par khud ko bhej dena — ek achhi aadat hai.</div>
+    <button type="button" class="backup-btn" id="exportBtn">📋 Backup Text Banao</button>
+    <div class="backup-textarea-row">
+      <textarea id="backupOutput" class="backup-textarea" rows="4" placeholder="Yahan backup text banega..." readonly></textarea>
+      <button type="button" class="clear-textarea-btn" id="clearBackupOutputBtn" title="Clear Karo">🗑</button>
+    </div>
+    <div class="backup-status" id="backupStatus"></div>
+
+    <div class="backup-hint" style="margin-top:14px;">Wapas laane ke liye: apna saved backup text neeche paste karo, phir "Is Text Se Load Karo" dabao.</div>
+    <div class="backup-textarea-row">
+      <textarea id="backupInput" class="backup-textarea" rows="4" placeholder="Yahan apna backup text paste karo..."></textarea>
+      <button type="button" class="clear-textarea-btn" id="clearBackupInputBtn" title="Clear Karo">🗑</button>
+    </div>
+    <button type="button" class="backup-btn" id="importBtn">⬆ Is Text Se Load Karo</button>
+    <div class="backup-status" id="backupImportStatus"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // Preset BPCL tank calibration charts (dip cm -> volume litres), embedded so users
+  // don't have to re-upload the standard company charts.
+  const PRESET_15KL = [{cm:0.5,litres:3.3},{cm:1,litres:9.35},{cm:1.5,litres:17.17},{cm:2,litres:26.41},{cm:2.5,litres:36.89},{cm:3,litres:48.45},{cm:3.5,litres:61.01},{cm:4,litres:74.49},{cm:4.5,litres:88.81},{cm:5,litres:103.94},{cm:5.5,litres:119.82},{cm:6,litres:136.43},{cm:6.5,litres:153.71},{cm:7,litres:171.65},{cm:7.5,litres:190.23},{cm:8,litres:209.4},{cm:8.5,litres:229.16},{cm:9,litres:249.48},{cm:9.5,litres:270.35},{cm:10,litres:291.75},{cm:10.5,litres:313.65},{cm:11,litres:336.06},{cm:11.5,litres:358.95},{cm:12,litres:382.32},{cm:12.5,litres:406.14},{cm:13,litres:430.42},{cm:13.5,litres:455.13},{cm:14,litres:480.27},{cm:14.5,litres:505.83},{cm:15,litres:531.8},{cm:15.5,litres:558.17},{cm:16,litres:584.93},{cm:16.5,litres:612.08},{cm:17,litres:639.6},{cm:17.5,litres:667.49},{cm:18,litres:695.75},{cm:18.5,litres:724.36},{cm:19,litres:753.32},{cm:19.5,litres:782.63},{cm:20,litres:812.27},{cm:20.5,litres:842.24},{cm:21,litres:872.54},{cm:21.5,litres:903.16},{cm:22,litres:934.09},{cm:22.5,litres:965.33},{cm:23,litres:996.88},{cm:23.5,litres:1028.73},{cm:24,litres:1060.87},{cm:24.5,litres:1093.3},{cm:25,litres:1126.02},{cm:25.5,litres:1159.02},{cm:26,litres:1192.3},{cm:26.5,litres:1225.85},{cm:27,litres:1259.67},{cm:27.5,litres:1293.76},{cm:28,litres:1328.1},{cm:28.5,litres:1362.71},{cm:29,litres:1397.57},{cm:29.5,litres:1432.68},{cm:30,litres:1468.03},{cm:30.5,litres:1503.63},{cm:31,litres:1539.47},{cm:31.5,litres:1575.55},{cm:32,litres:1611.86},{cm:32.5,litres:1648.4},{cm:33,litres:1685.17},{cm:33.5,litres:1722.16},{cm:34,litres:1759.37},{cm:34.5,litres:1796.81},{cm:35,litres:1834.45},{cm:35.5,litres:1872.31},{cm:36,litres:1910.38},{cm:36.5,litres:1948.66},{cm:37,litres:1987.14},{cm:37.5,litres:2025.82},{cm:38,litres:2064.7},{cm:38.5,litres:2103.78},{cm:39,litres:2143.05},{cm:39.5,litres:2182.51},{cm:40,litres:2222.16},{cm:40.5,litres:2261.99},{cm:41,litres:2302.02},{cm:41.5,litres:2342.22},{cm:42,litres:2382.6},{cm:42.5,litres:2423.16},{cm:43,litres:2463.89},{cm:43.5,litres:2504.79},{cm:44,litres:2545.87},{cm:44.5,litres:2587.11},{cm:45,litres:2628.52},{cm:45.5,litres:2670.09},{cm:46,litres:2711.83},{cm:46.5,litres:2753.72},{cm:47,litres:2795.77},{cm:47.5,litres:2837.98},{cm:48,litres:2880.34},{cm:48.5,litres:2922.85},{cm:49,litres:2965.51},{cm:49.5,litres:3008.31},{cm:50,litres:3051.27},{cm:50.5,litres:3094.36},{cm:51,litres:3137.6},{cm:51.5,litres:3180.97},{cm:52,litres:3224.49},{cm:52.5,litres:3268.14},{cm:53,litres:3311.92},{cm:53.5,litres:3355.84},{cm:54,litres:3399.89},{cm:54.5,litres:3444.09},{cm:55,litres:3488.37},{cm:55.5,litres:3532.79},{cm:56,litres:3577.35},{cm:56.5,litres:3622.02},{cm:57,litres:3666.81},{cm:57.5,litres:3711.72},{cm:58,litres:3756.75},{cm:58.5,litres:3801.89},{cm:59,litres:3847.15},{cm:59.5,litres:3892.52},{cm:60,litres:3938},{cm:60.5,litres:3983.58},{cm:61,litres:4029.28},{cm:61.5,litres:4075.07},{cm:62,litres:4120.98},{cm:62.5,litres:4166.98},{cm:63,litres:4213.09},{cm:63.5,litres:4259.29},{cm:64,litres:4305.59},{cm:64.5,litres:4351.99},{cm:65,litres:4398.48},{cm:65.5,litres:4445.06},{cm:66,litres:4491.74},{cm:66.5,litres:4538.5},{cm:67,litres:4585.35},{cm:67.5,litres:4632.3},{cm:68,litres:4679.32},{cm:68.5,litres:4726.43},{cm:69,litres:4773.62},{cm:69.5,litres:4820.89},{cm:70,litres:4868.25},{cm:70.5,litres:4915.68},{cm:71,litres:4963.18},{cm:71.5,litres:5010.77},{cm:72,litres:5058.42},{cm:72.5,litres:5106.15},{cm:73,litres:5153.95},{cm:73.5,litres:5201.82},{cm:74,litres:5249.76},{cm:74.5,litres:5297.76},{cm:75,litres:5345.83},{cm:75.5,litres:5393.97},{cm:76,litres:5442.17},{cm:76.5,litres:5490.42},{cm:77,litres:5538.74},{cm:77.5,litres:5587.12},{cm:78,litres:5635.55},{cm:78.5,litres:5684.05},{cm:79,litres:5732.59},{cm:79.5,litres:5781.19},{cm:80,litres:5829.84},{cm:80.5,litres:5878.54},{cm:81,litres:5927.29},{cm:81.5,litres:5976.09},{cm:82,litres:6024.94},{cm:82.5,litres:6073.83},{cm:83,litres:6122.76},{cm:83.5,litres:6171.74},{cm:84,litres:6220.76},{cm:84.5,litres:6269.82},{cm:85,litres:6318.92},{cm:85.5,litres:6368.06},{cm:86,litres:6417.23},{cm:86.5,litres:6466.44},{cm:87,litres:6515.68},{cm:87.5,litres:6564.95},{cm:88,litres:6614.26},{cm:88.5,litres:6663.59},{cm:89,litres:6712.96},{cm:89.5,litres:6762.35},{cm:90,litres:6811.77},{cm:90.5,litres:6861.21},{cm:91,litres:6910.68},{cm:91.5,litres:6960.17},{cm:92,litres:7009.68},{cm:92.5,litres:7059.21},{cm:93,litres:7108.76},{cm:93.5,litres:7158.33},{cm:94,litres:7207.91},{cm:94.5,litres:7257.51},{cm:95,litres:7307.12},{cm:95.5,litres:7356.74},{cm:96,litres:7406.38},{cm:96.5,litres:7456.02},{cm:97,litres:7505.68},{cm:97.5,litres:7555.34},{cm:98,litres:7605},{cm:98.5,litres:7654.68},{cm:99,litres:7704.35},{cm:99.5,litres:7754.03},{cm:100,litres:7803.71},{cm:100.5,litres:7853.39},{cm:101,litres:7903.07},{cm:101.5,litres:7952.75},{cm:102,litres:8002.42},{cm:102.5,litres:8052.09},{cm:103,litres:8101.75},{cm:103.5,litres:8151.4},{cm:104,litres:8201.05},{cm:104.5,litres:8250.68},{cm:105,litres:8300.3},{cm:105.5,litres:8349.92},{cm:106,litres:8399.51},{cm:106.5,litres:8449.1},{cm:107,litres:8498.66},{cm:107.5,litres:8548.21},{cm:108,litres:8597.74},{cm:108.5,litres:8647.25},{cm:109,litres:8696.74},{cm:109.5,litres:8746.21},{cm:110,litres:8795.65},{cm:110.5,litres:8845.07},{cm:111,litres:8894.46},{cm:111.5,litres:8943.83},{cm:112,litres:8993.16},{cm:112.5,litres:9042.47},{cm:113,litres:9091.74},{cm:113.5,litres:9140.99},{cm:114,litres:9190.19},{cm:114.5,litres:9239.37},{cm:115,litres:9288.5},{cm:115.5,litres:9337.6},{cm:116,litres:9386.66},{cm:116.5,litres:9435.68},{cm:117,litres:9484.66},{cm:117.5,litres:9533.59},{cm:118,litres:9582.49},{cm:118.5,litres:9631.33},{cm:119,litres:9680.13},{cm:119.5,litres:9728.88},{cm:120,litres:9777.58},{cm:120.5,litres:9826.23},{cm:121,litres:9874.83},{cm:121.5,litres:9923.38},{cm:122,litres:9971.87},{cm:122.5,litres:10020.3},{cm:123,litres:10068.68},{cm:123.5,litres:10117},{cm:124,litres:10165.26},{cm:124.5,litres:10213.45},{cm:125,litres:10261.59},{cm:125.5,litres:10309.66},{cm:126,litres:10357.66},{cm:126.5,litres:10405.6},{cm:127,litres:10453.47},{cm:127.5,litres:10501.27},{cm:128,litres:10549},{cm:128.5,litres:10596.66},{cm:129,litres:10644.24},{cm:129.5,litres:10691.74},{cm:130,litres:10739.18},{cm:130.5,litres:10786.53},{cm:131,litres:10833.8},{cm:131.5,litres:10880.99},{cm:132,litres:10928.1},{cm:132.5,litres:10975.13},{cm:133,litres:11022.07},{cm:133.5,litres:11068.92},{cm:134,litres:11115.69},{cm:134.5,litres:11162.36},{cm:135,litres:11208.94},{cm:135.5,litres:11255.44},{cm:136,litres:11301.83},{cm:136.5,litres:11348.13},{cm:137,litres:11394.34},{cm:137.5,litres:11440.44},{cm:138,litres:11486.45},{cm:138.5,litres:11532.35},{cm:139,litres:11578.15},{cm:139.5,litres:11623.84},{cm:140,litres:11669.43},{cm:140.5,litres:11714.9},{cm:141,litres:11760.27},{cm:141.5,litres:11805.53},{cm:142,litres:11850.67},{cm:142.5,litres:11895.7},{cm:143,litres:11940.61},{cm:143.5,litres:11985.4},{cm:144,litres:12030.08},{cm:144.5,litres:12074.63},{cm:145,litres:12119.06},{cm:145.5,litres:12163.36},{cm:146,litres:12207.53},{cm:146.5,litres:12251.58},{cm:147,litres:12295.5},{cm:147.5,litres:12339.28},{cm:148,litres:12382.93},{cm:148.5,litres:12426.45},{cm:149,litres:12469.82},{cm:149.5,litres:12513.06},{cm:150,litres:12556.16},{cm:150.5,litres:12599.11},{cm:151,litres:12641.92},{cm:151.5,litres:12684.58},{cm:152,litres:12727.09},{cm:152.5,litres:12769.44},{cm:153,litres:12811.65},{cm:153.5,litres:12853.7},{cm:154,litres:12895.59},{cm:154.5,litres:12937.33},{cm:155,litres:12978.9},{cm:155.5,litres:13020.31},{cm:156,litres:13061.55},{cm:156.5,litres:13102.63},{cm:157,litres:13143.53},{cm:157.5,litres:13184.27},{cm:158,litres:13224.82},{cm:158.5,litres:13265.21},{cm:159,litres:13305.41},{cm:159.5,litres:13345.43},{cm:160,litres:13385.26},{cm:160.5,litres:13424.92},{cm:161,litres:13464.38},{cm:161.5,litres:13503.65},{cm:162,litres:13542.72},{cm:162.5,litres:13581.6},{cm:163,litres:13620.29},{cm:163.5,litres:13658.77},{cm:164,litres:13697.04},{cm:164.5,litres:13735.11},{cm:165,litres:13772.97},{cm:165.5,litres:13810.62},{cm:166,litres:13848.05},{cm:166.5,litres:13885.26},{cm:167,litres:13922.25},{cm:167.5,litres:13959.02},{cm:168,litres:13995.06},{cm:168.5,litres:14031.87},{cm:169,litres:14067.95},{cm:169.5,litres:14103.79},{cm:170,litres:14139.39},{cm:170.5,litres:14174.75},{cm:171,litres:14209.85},{cm:171.5,litres:14244.71},{cm:172,litres:14279.32},{cm:172.5,litres:14313.67},{cm:173,litres:14347.75},{cm:173.5,litres:14381.57},{cm:174,litres:14415.12},{cm:174.5,litres:14448.4},{cm:175,litres:14481.4},{cm:175.5,litres:14514.12},{cm:176,litres:14546.55},{cm:176.5,litres:14578.69},{cm:177,litres:14610.54},{cm:177.5,litres:14642.09},{cm:178,litres:14673.33},{cm:178.5,litres:14704.26},{cm:179,litres:14734.88},{cm:179.5,litres:14765.18},{cm:180,litres:14795.15},{cm:180.5,litres:14824.8},{cm:181,litres:14854.1},{cm:181.5,litres:14883.06},{cm:182,litres:14911.67},{cm:182.5,litres:14939.93},{cm:183,litres:14967.82},{cm:183.5,litres:14995.35},{cm:184,litres:15022.49},{cm:184.5,litres:15049.25},{cm:185,litres:15075.62},{cm:185.5,litres:15101.59},{cm:186,litres:15127.15},{cm:186.5,litres:15152.29},{cm:187,litres:15177},{cm:187.5,litres:15201.28},{cm:188,litres:15225.1},{cm:188.5,litres:15248.47},{cm:189,litres:15271.36},{cm:189.5,litres:15293.77},{cm:190,litres:15315.68},{cm:190.5,litres:15337.07},{cm:191,litres:15357.94},{cm:191.5,litres:15378.26},{cm:192,litres:15398.02},{cm:192.5,litres:15417.2},{cm:193,litres:15435.77},{cm:193.5,litres:15453.71},{cm:194,litres:15471},{cm:194.5,litres:15487.6},{cm:195,litres:15503.48},{cm:195.5,litres:15518.61},{cm:196,litres:15532.94},{cm:196.5,litres:15546.41},{cm:197,litres:15558.97},{cm:197.5,litres:15570.54},{cm:198,litres:15581.01},{cm:198.5,litres:15590.26},{cm:199,litres:15598.07},{cm:199.5,litres:15604.12},{cm:200,litres:15607.43}];
+  const PRESET_20KL = [{cm:0.5,litres:4.47},{cm:1,litres:12.64},{cm:1.5,litres:23.21},{cm:2,litres:35.72},{cm:2.5,litres:49.88},{cm:3,litres:65.52},{cm:3.5,litres:82.5},{cm:4,litres:100.73},{cm:4.5,litres:120.1},{cm:5,litres:140.56},{cm:5.5,litres:162.03},{cm:6,litres:184.49},{cm:6.5,litres:207.86},{cm:7,litres:232.12},{cm:7.5,litres:257.24},{cm:8,litres:283.17},{cm:8.5,litres:309.88},{cm:9,litres:337.36},{cm:9.5,litres:365.58},{cm:10,litres:394.52},{cm:10.5,litres:424.14},{cm:11,litres:454.44},{cm:11.5,litres:485.4},{cm:12,litres:516.99},{cm:12.5,litres:549.21},{cm:13,litres:582.04},{cm:13.5,litres:615.45},{cm:14,litres:649.45},{cm:14.5,litres:684.01},{cm:15,litres:719.13},{cm:15.5,litres:754.79},{cm:16,litres:790.98},{cm:16.5,litres:827.69},{cm:17,litres:864.9},{cm:17.5,litres:902.62},{cm:18,litres:940.83},{cm:18.5,litres:979.52},{cm:19,litres:1018.69},{cm:19.5,litres:1058.31},{cm:20,litres:1098.4},{cm:20.5,litres:1138.93},{cm:21,litres:1179.9},{cm:21.5,litres:1221.3},{cm:22,litres:1263.13},{cm:22.5,litres:1305.38},{cm:23,litres:1348.04},{cm:23.5,litres:1391.1},{cm:24,litres:1434.57},{cm:24.5,litres:1478.43},{cm:25,litres:1552.67},{cm:25.5,litres:1567.29},{cm:26,litres:1612.29},{cm:26.5,litres:1657.66},{cm:27,litres:1703.4},{cm:27.5,litres:1749.49},{cm:28,litres:1795.94},{cm:28.5,litres:1842.73},{cm:29,litres:1889.87},{cm:29.5,litres:1937.35},{cm:30,litres:1985.16},{cm:30.5,litres:2033.3},{cm:31,litres:2081.76},{cm:31.5,litres:2130.55},{cm:32,litres:2179.65},{cm:32.5,litres:2229.06},{cm:33,litres:2278.78},{cm:33.5,litres:2328.8},{cm:34,litres:2379.12},{cm:34.5,litres:2429.74},{cm:35,litres:2480.65},{cm:35.5,litres:2531.84},{cm:36,litres:2583.32},{cm:36.5,litres:2635.08},{cm:37,litres:2687.12},{cm:37.5,litres:2739.42},{cm:38,litres:2792},{cm:38.5,litres:2844.84},{cm:39,litres:2897.95},{cm:39.5,litres:2951.31},{cm:40,litres:3004.92},{cm:40.5,litres:3058.79},{cm:41,litres:3112.91},{cm:41.5,litres:3167.28},{cm:42,litres:3221.88},{cm:42.5,litres:3276.73},{cm:43,litres:3331.81},{cm:43.5,litres:3387.12},{cm:44,litres:3442.67},{cm:44.5,litres:3498.44},{cm:45,litres:3554.43},{cm:45.5,litres:3610.65},{cm:46,litres:3667.08},{cm:46.5,litres:3723.73},{cm:47,litres:3780.6},{cm:47.5,litres:3837.67},{cm:48,litres:3894.95},{cm:48.5,litres:3952.43},{cm:49,litres:4010.12},{cm:49.5,litres:4068.01},{cm:50,litres:4126.09},{cm:50.5,litres:4184.37},{cm:51,litres:4242.83},{cm:51.5,litres:4301.49},{cm:52,litres:4360.33},{cm:52.5,litres:4419.36},{cm:53,litres:4478.57},{cm:53.5,litres:4537.95},{cm:54,litres:4597.52},{cm:54.5,litres:4657.25},{cm:55,litres:4717.16},{cm:55.5,litres:4777.24},{cm:56,litres:4837.48},{cm:56.5,litres:4897.89},{cm:57,litres:4958.46},{cm:57.5,litres:5019.2},{cm:58,litres:5080.09},{cm:58.5,litres:5141.13},{cm:59,litres:5202.33},{cm:59.5,litres:5263.68},{cm:60,litres:5325.18},{cm:60.5,litres:5386.82},{cm:61,litres:5448.61},{cm:61.5,litres:5510.54},{cm:62,litres:5572.61},{cm:62.5,litres:5634.82},{cm:63,litres:5697.17},{cm:63.5,litres:5759.64},{cm:64,litres:5822.26},{cm:64.5,litres:5885},{cm:65,litres:5947.86},{cm:65.5,litres:6010.86},{cm:66,litres:6073.97},{cm:66.5,litres:6137.21},{cm:67,litres:6200.57},{cm:67.5,litres:6264.04},{cm:68,litres:6327.63},{cm:68.5,litres:6391.34},{cm:69,litres:6455.15},{cm:69.5,litres:6519.08},{cm:70,litres:6583.11},{cm:70.5,litres:6647.25},{cm:71,litres:6711.49},{cm:71.5,litres:6775.83},{cm:72,litres:6840.28},{cm:72.5,litres:6904.82},{cm:73,litres:6969.46},{cm:73.5,litres:7034.19},{cm:74,litres:7099.01},{cm:74.5,litres:7163.93},{cm:75,litres:7228.93},{cm:75.5,litres:7294.02},{cm:76,litres:7359.19},{cm:76.5,litres:7424.45},{cm:77,litres:7489.79},{cm:77.5,litres:7555.21},{cm:78,litres:7620.71},{cm:78.5,litres:7686.28},{cm:79,litres:7751.92},{cm:79.5,litres:7817.64},{cm:80,litres:7883.43},{cm:80.5,litres:7949.29},{cm:81,litres:8015.21},{cm:81.5,litres:8081.2},{cm:82,litres:8147.25},{cm:82.5,litres:8213.36},{cm:83,litres:8279.54},{cm:83.5,litres:8345.77},{cm:84,litres:8412.05},{cm:84.5,litres:8478.39},{cm:85,litres:8544.79},{cm:85.5,litres:8611.23},{cm:86,litres:8677.73},{cm:86.5,litres:8744.27},{cm:87,litres:8810.86},{cm:87.5,litres:8877.49},{cm:88,litres:8944.16},{cm:88.5,litres:9010.88},{cm:89,litres:9077.63},{cm:89.5,litres:9144.42},{cm:90,litres:9211.25},{cm:90.5,litres:9278.11},{cm:91,litres:9345},{cm:91.5,litres:9411.92},{cm:92,litres:9478.87},{cm:92.5,litres:9545.85},{cm:93,litres:9612.85},{cm:93.5,litres:9679.88},{cm:94,litres:9746.93},{cm:94.5,litres:9814},{cm:95,litres:9881.09},{cm:95.5,litres:9948.19},{cm:96,litres:10015.31},{cm:96.5,litres:10082.45},{cm:97,litres:10149.59},{cm:97.5,litres:10216.74},{cm:98,litres:10283.91},{cm:98.5,litres:10351.08},{cm:99,litres:10418.25},{cm:99.5,litres:10484.43},{cm:100,litres:10552.61},{cm:100.5,litres:10619.79},{cm:101,litres:10686.97},{cm:101.5,litres:10754.14},{cm:102,litres:10821.31},{cm:102.5,litres:10888.47},{cm:103,litres:10955.63},{cm:103.5,litres:11022.77},{cm:104,litres:11089.91},{cm:104.5,litres:11157.03},{cm:105,litres:11224.13},{cm:105.5,litres:11291.22},{cm:106,litres:11358.29},{cm:106.5,litres:11425.33},{cm:107,litres:11492.36},{cm:107.5,litres:11559.36},{cm:108,litres:11626.34},{cm:108.5,litres:11693.29},{cm:109,litres:11760.22},{cm:109.5,litres:11827.11},{cm:110,litres:11893.97},{cm:110.5,litres:11960.79},{cm:111,litres:12027.58},{cm:111.5,litres:12094.34},{cm:112,litres:12161.05},{cm:112.5,litres:12227.73},{cm:113,litres:12294.36},{cm:113.5,litres:12360.94},{cm:114,litres:12427.49},{cm:114.5,litres:12493.98},{cm:115,litres:12560.43},{cm:115.5,litres:12626.82},{cm:116,litres:12693.16},{cm:116.5,litres:12759.45},{cm:117,litres:12825.68},{cm:117.5,litres:12891.85},{cm:118,litres:12957.97},{cm:118.5,litres:13024.02},{cm:119,litres:13090.01},{cm:119.5,litres:13155.93},{cm:120,litres:13221.79},{cm:120.5,litres:13287.57},{cm:121,litres:13353.29},{cm:121.5,litres:13418.94},{cm:122,litres:13484.51},{cm:122.5,litres:13550.01},{cm:123,litres:13615.42},{cm:123.5,litres:13680.76},{cm:124,litres:13746.02},{cm:124.5,litres:13811.19},{cm:125,litres:13876.28},{cm:125.5,litres:13941.29},{cm:126,litres:14006.2},{cm:126.5,litres:14071.03},{cm:127,litres:14135.76},{cm:127.5,litres:14200.4},{cm:128,litres:14264.94},{cm:128.5,litres:14329.38},{cm:129,litres:14393.72},{cm:129.5,litres:14457.97},{cm:130,litres:14522.1},{cm:130.5,litres:14586.14},{cm:131,litres:14650.06},{cm:131.5,litres:14713.88},{cm:132,litres:14777.58},{cm:132.5,litres:14841.17},{cm:133,litres:14904.65},{cm:133.5,litres:14968},{cm:134,litres:15031.24},{cm:134.5,litres:15094.36},{cm:135,litres:15157.35},{cm:135.5,litres:15220.22},{cm:136,litres:15282.96},{cm:136.5,litres:15345.57},{cm:137,litres:15408.05},{cm:137.5,litres:15470.39},{cm:138,litres:15532.6},{cm:138.5,litres:15594.67},{cm:139,litres:15656.61},{cm:139.5,litres:15718.39},{cm:140,litres:15780.04},{cm:140.5,litres:15841.54},{cm:141,litres:15902.89},{cm:141.5,litres:15964.08},{cm:142,litres:16025.13},{cm:142.5,litres:16086.02},{cm:143,litres:16146.75},{cm:143.5,litres:16207.32},{cm:144,litres:16267.73},{cm:144.5,litres:16327.98},{cm:145,litres:16388.05},{cm:145.5,litres:16447.96},{cm:146,litres:16507.7},{cm:146.5,litres:16567.26},{cm:147,litres:16626.65},{cm:147.5,litres:16685.86},{cm:148,litres:16744.88},{cm:148.5,litres:16803.73},{cm:149,litres:16862.38},{cm:149.5,litres:16920.85},{cm:150,litres:16979.13},{cm:150.5,litres:17037.21},{cm:151,litres:17095.09},{cm:151.5,litres:17152.78},{cm:152,litres:17210.26},{cm:152.5,litres:17267.54},{cm:153,litres:17324.62},{cm:153.5,litres:17381.48},{cm:154,litres:17438.13},{cm:154.5,litres:17494.57},{cm:155,litres:17550.78},{cm:155.5,litres:17606.78},{cm:156,litres:17662.55},{cm:156.5,litres:17718.09},{cm:157,litres:17773.41},{cm:157.5,litres:17828.49},{cm:158,litres:17883.33},{cm:158.5,litres:17937.94},{cm:159,litres:17992.3},{cm:159.5,litres:18046.42},{cm:160,litres:18100.29},{cm:160.5,litres:18153.91},{cm:161,litres:18207.27},{cm:161.5,litres:18260.37},{cm:162,litres:18313.22},{cm:162.5,litres:18365.79},{cm:163,litres:18418.1},{cm:163.5,litres:18470.13},{cm:164,litres:18521.89},{cm:164.5,litres:18573.37},{cm:165,litres:18624.57},{cm:165.5,litres:18675.47},{cm:166,litres:18726.09},{cm:166.5,litres:18776.41},{cm:167,litres:18826.44},{cm:167.5,litres:18876.16},{cm:168,litres:18925.57},{cm:168.5,litres:18974.67},{cm:169,litres:19023.45},{cm:169.5,litres:19071.92},{cm:170,litres:19120.06},{cm:170.5,litres:19167.87},{cm:171,litres:19215.35},{cm:171.5,litres:19262.48},{cm:172,litres:19309.28},{cm:172.5,litres:19355.72},{cm:173,litres:19401.82},{cm:173.5,litres:19447.55},{cm:174,litres:19492.92},{cm:174.5,litres:19537.92},{cm:175,litres:19582.55},{cm:175.5,litres:19626.79},{cm:176,litres:19670.65},{cm:176.5,litres:19714.11},{cm:177,litres:19757.18},{cm:177.5,litres:19799.84},{cm:178,litres:19842.08},{cm:178.5,litres:19883.91},{cm:179,litres:19925.32},{cm:179.5,litres:19966.29},{cm:180,litres:20006.82},{cm:180.5,litres:20046.9},{cm:181,litres:20086.53},{cm:181.5,litres:20125.69},{cm:182,litres:20164.38},{cm:182.5,litres:20202.59},{cm:183,litres:20240.31},{cm:183.5,litres:20277.53},{cm:184,litres:20314.24},{cm:184.5,litres:20350.43},{cm:185,litres:20386.09},{cm:185.5,litres:20421.2},{cm:186,litres:20455.76},{cm:186.5,litres:20489.76},{cm:187,litres:20523.18},{cm:187.5,litres:20556},{cm:188,litres:20588.22},{cm:188.5,litres:20619.82},{cm:189,litres:20650.77},{cm:189.5,litres:20681.07},{cm:190,litres:20710.7},{cm:190.5,litres:20739.63},{cm:191,litres:20767.85},{cm:191.5,litres:20795.33},{cm:192,litres:20822.05},{cm:192.5,litres:20847.98},{cm:193,litres:20873.09},{cm:193.5,litres:20897.35},{cm:194,litres:20920.73},{cm:194.5,litres:20943.18},{cm:195,litres:20964.66},{cm:195.5,litres:20985.11},{cm:196,litres:21004.49},{cm:196.5,litres:21022.71},{cm:197,litres:21039.69},{cm:197.5,litres:21055.33},{cm:198,litres:21069.5},{cm:198.5,litres:21082},{cm:199,litres:21092.57},{cm:199.5,litres:21100.74},{cm:200,litres:21105.22}];
+  const HI_MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const HI_WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+  // Local-storage backed persistence shim. window.storage (the Claude artifact
+  // storage API) isn't reliably available when this file is opened outside the
+  // live claude.ai artifact sandbox, so we persist directly in the browser
+  // instead -- this works in any normal browser regardless of how the file was opened.
+  const storage = {
+    async get(key){
+      const v = localStorage.getItem(key);
+      return v === null ? null : { key, value: v };
+    },
+    async set(key, value){
+      localStorage.setItem(key, value);
+      return { key, value };
+    },
+    async delete(key){
+      localStorage.removeItem(key);
+      return { key, deleted: true };
+    },
+    async list(prefix){
+      const keys = [];
+      for(let i = 0; i < localStorage.length; i++){
+        const k = localStorage.key(i);
+        if(!prefix || (k && k.indexOf(prefix) === 0)) keys.push(k);
+      }
+      return { keys };
+    }
+  };
+
+  let allEntries = {};
+  let currentMonth = new Date();
+  currentMonth.setDate(1);
+  let editingDate = null;
+
+  let formState = {
+    petrol: { rate: '', cost: '', nozzles: [{label:'Nozzle 1', opening:'',closing:'',testing:''}], tanks: [{label:'Tank 1', openingDipCm:'', closingDipCm:'', purchase:''}] },
+    diesel: { rate: '', cost: '', nozzles: [{label:'Nozzle 1', opening:'',closing:'',testing:''}], tanks: [{label:'Tank 1', openingDipCm:'', closingDipCm:'', purchase:''}] },
+    parties: [],
+    employees: [],
+    cashDenominations: [],
+    digitalPayments: [],
+    expenses: [],
+    selfUse: []
+  };
+
+  const $ = (id) => document.getElementById(id);
+
+  function fmtINR(n){
+    n = Math.round(n || 0);
+    const neg = n < 0;
+    n = Math.abs(n);
+    let s = n.toString();
+    let last3 = s.slice(-3);
+    let rest = s.slice(0, -3);
+    if(rest !== '') last3 = ',' + last3;
+    let formatted = rest.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + last3;
+    return (neg ? '-' : '') + '₹' + formatted;
+  }
+  function fmtRs(n){
+    n = Math.round(n || 0);
+    const neg = n < 0;
+    n = Math.abs(n);
+    let s = n.toString();
+    let last3 = s.slice(-3);
+    let rest = s.slice(0, -3);
+    if(rest !== '') last3 = ',' + last3;
+    let formatted = rest.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + last3;
+    return (neg ? '-' : '') + 'Rs.' + formatted;
+  }
+  function fmtL(n){ n = Math.round((n || 0) * 100) / 100; return n.toLocaleString('en-IN'); }
+  function monthKey(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'); }
+  function dateStr(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+  function num(v){ const n = parseFloat(v); return isNaN(n) ? 0 : n; }
+  function hasVal(v){ return v !== undefined && v !== null && v !== ''; }
+
+  async function loadAllEntries(){
+    try{
+      const listRes = await storage.list('entry:');
+      const keys = (listRes && listRes.keys) || [];
+      const results = await Promise.all(keys.map(async (k) => {
+        try{
+          const r = await storage.get(k);
+          if(!r) return null;
+          const parsed = JSON.parse(r.value);
+          // backward-compat: old flat "credit" field -> convert to unnamed party txn
+          if(!parsed.parties && parsed.credit){
+            parsed.parties = [{ name: '', given: parsed.credit, received: '', registerClosing: '' }];
+          }
+          if(!parsed.parties) parsed.parties = [];
+          // backward-compat: nozzles without labels
+          ['petrol','diesel'].forEach(fk => {
+            if(parsed[fk] && Array.isArray(parsed[fk].nozzles)){
+              parsed[fk].nozzles.forEach((n, i) => { if(!n.label) n.label = 'Nozzle ' + (i+1); });
+            }
+            if(!parsed[fk]) parsed[fk] = {};
+            if(!Array.isArray(parsed[fk].tanks)) parsed[fk].tanks = [];
+            parsed[fk].tanks.forEach((t, i) => {
+              if(!t.label) t.label = 'Tank ' + (i+1);
+              if(t.openingDipCm === undefined) t.openingDipCm = t.openingDipCm || '';
+              if(t.closingDipCm === undefined) t.closingDipCm = t.closingDipCm || '';
+            });
+          });
+          return [k.replace('entry:',''), parsed];
+        }catch(e){ return null; }
+      }));
+      allEntries = {};
+      results.forEach(pair => { if(pair) allEntries[pair[0]] = pair[1]; });
+    }catch(e){
+      console.error('Load error', e);
+      allEntries = {};
+    }
+  }
+
+  function calcFuel(fuel, fuelKey){
+    fuel = fuel || {};
+    const nozzles = fuel.nozzles || [];
+    let totalLitres = 0;
+    nozzles.forEach(n => {
+      const o = num(n.opening), c = num(n.closing), t = num(n.testing);
+      let net = c - o - t;
+      if(net < 0 || !isFinite(net)) net = 0;
+      totalLitres += net;
+    });
+    const rate = num(fuel.rate);
+    const hasCost = hasVal(fuel.cost) && !isNaN(parseFloat(fuel.cost));
+    const cost = num(fuel.cost);
+    const sale = totalLitres * rate;
+    const margin = hasCost ? totalLitres * (rate - cost) : 0;
+
+    const tanks = fuel.tanks || [];
+    let tankOpening = 0, tankClosing = 0, tankPurchase = 0, hasTankData = false, chartMissing = false;
+    tanks.forEach(t => {
+      if(hasVal(t.openingDipCm) || hasVal(t.closingDipCm) || hasVal(t.purchase)) hasTankData = true;
+      const openingL = hasVal(t.openingDipCm) ? interpolateLitres(fuelKey, t.label, t.openingDipCm) : 0;
+      const closingL = hasVal(t.closingDipCm) ? interpolateLitres(fuelKey, t.label, t.closingDipCm) : 0;
+      if((hasVal(t.openingDipCm) && openingL === null) || (hasVal(t.closingDipCm) && closingL === null)) chartMissing = true;
+      tankOpening += openingL || 0;
+      tankClosing += closingL || 0;
+      tankPurchase += num(t.purchase);
+    });
+    const tankConsumption = tankOpening + tankPurchase - tankClosing;
+    const stockVariation = (hasTankData && !chartMissing) ? (totalLitres - tankConsumption) : null;
+
+    return { totalLitres, sale, margin, hasCost, tankOpening, tankClosing, tankPurchase, tankConsumption, hasTankData, chartMissing, stockVariation };
+  }
+
+  function calcEntry(e){
+    const p = calcFuel(e.petrol, 'petrol');
+    const d = calcFuel(e.diesel, 'diesel');
+    const totalSale = p.sale + d.sale;
+    const expenseItems = e.expenses || [];
+    const kharch = expenseItems.length ? expenseItems.reduce((sum, ex) => sum + num(ex.amount), 0) : num(e.kharch);
+    const selfUseItems = e.selfUse || [];
+    const selfUseTotal = selfUseItems.reduce((sum, su) => sum + num(su.amount), 0);
+    const digitalItems = e.digitalPayments || [];
+    const totalDigital = digitalItems.reduce((sum, dp) => sum + num(dp.amount), 0);
+    const parties = e.parties || [];
+    let totalGiven = 0, totalReceived = 0;
+    parties.forEach(pt => { totalGiven += num(pt.given); totalReceived += num(pt.received); });
+    const employees = e.employees || [];
+    let totalEmployeeGiven = 0, totalEmployeeReceived = 0;
+    employees.forEach(em => { totalEmployeeGiven += num(em.given); totalEmployeeReceived += num(em.received); });
+    const computedCash = totalSale - totalGiven + totalReceived - totalEmployeeGiven + totalEmployeeReceived - totalDigital - kharch - selfUseTotal;
+    const hasActualCash = hasVal(e.cashActual);
+    const actualCash = hasActualCash ? num(e.cashActual) : null;
+    const hasMargin = p.hasCost || d.hasCost;
+    const margin = p.margin + d.margin;
+    const netProfit = hasMargin ? (margin - kharch - selfUseTotal) : null;
+    const denoms = e.cashDenominations || [];
+    let denomTotal = 0, hasDenomData = false;
+    denoms.forEach(dn => { if(hasVal(dn.note) || hasVal(dn.count)) hasDenomData = true; denomTotal += num(dn.note) * num(dn.count); });
+    const cashMismatch = hasActualCash ? Math.abs(computedCash - actualCash) > 2 : false;
+    const cashDiff = hasActualCash ? (actualCash - computedCash) : null;
+    return { p, d, totalSale, kharch, selfUseTotal, totalDigital, totalGiven, totalReceived, totalEmployeeGiven, totalEmployeeReceived, computedCash, hasActualCash, actualCash, hasMargin, margin, netProfit, denomTotal, hasDenomData, cashMismatch, cashDiff };
+  }
+
+  // ---------- Historical lookups for auto-verification ----------
+  function getPreviousNozzleClosing(fuelKey, label, currentDate){
+    if(!label) return null;
+    const dates = Object.keys(allEntries).filter(d => d !== currentDate && (!currentDate || d < currentDate)).sort();
+    for(let i = dates.length - 1; i >= 0; i--){
+      const e = allEntries[dates[i]];
+      const nozzles = (e[fuelKey] && e[fuelKey].nozzles) || [];
+      const match = nozzles.find(n => (n.label || '').trim().toLowerCase() === label.trim().toLowerCase());
+      if(match && hasVal(match.closing)){
+        return { value: num(match.closing), date: dates[i] };
+      }
+    }
+    return null;
+  }
+
+  function getPreviousTankClosing(fuelKey, label, currentDate){
+    if(!label) return null;
+    const dates = Object.keys(allEntries).filter(d => d !== currentDate && (!currentDate || d < currentDate)).sort();
+    for(let i = dates.length - 1; i >= 0; i--){
+      const e = allEntries[dates[i]];
+      const tanks = (e[fuelKey] && e[fuelKey].tanks) || [];
+      const match = tanks.find(t => (t.label || '').trim().toLowerCase() === label.trim().toLowerCase());
+      if(match && hasVal(match.closingDipCm)){
+        return { value: num(match.closingDipCm), date: dates[i] };
+      }
+    }
+    return null;
+  }
+
+  let partyOpeningBalances = {}; // partyName (lowercase) -> opening balance, set once, never part of daily cash calc
+
+  async function loadPartyOpeningBalances(){
+    try{
+      const listRes = await storage.list('partyopening:');
+      const keys = (listRes && listRes.keys) || [];
+      const results = await Promise.all(keys.map(async (k) => {
+        try{
+          const r = await storage.get(k);
+          return r ? [k.replace('partyopening:',''), num(r.value)] : null;
+        }catch(e){ return null; }
+      }));
+      partyOpeningBalances = {};
+      results.forEach(pair => { if(pair) partyOpeningBalances[pair[0]] = pair[1]; });
+    }catch(e){
+      console.error('Party opening balance load error', e);
+      partyOpeningBalances = {};
+    }
+  }
+
+  async function setPartyOpeningBalance(partyName, amount){
+    const key = partyName.trim().toLowerCase();
+    const val = num(amount);
+    partyOpeningBalances[key] = val;
+    await storage.set('partyopening:' + key, String(val));
+  }
+
+  function getPartyBalanceBefore(partyName, currentDate){
+    if(!partyName) return 0;
+    const key = partyName.trim().toLowerCase();
+    const dates = Object.keys(allEntries).filter(d => d !== currentDate && (!currentDate || d < currentDate)).sort();
+    let balance = partyOpeningBalances[key] || 0;
+    dates.forEach(d => {
+      (allEntries[d].parties || []).forEach(pt => {
+        if((pt.name || '').trim().toLowerCase() === key){
+          balance += num(pt.given) - num(pt.received);
+        }
+      });
+    });
+    return balance;
+  }
+
+  function getAllPartyBalances(){
+    const balances = {};
+    Object.keys(partyOpeningBalances).forEach(key => {
+      if(partyOpeningBalances[key]) balances[key] = partyOpeningBalances[key];
+    });
+    const displayNames = {};
+    Object.keys(allEntries).sort().forEach(d => {
+      (allEntries[d].parties || []).forEach(pt => {
+        const rawName = (pt.name || '').trim();
+        if(!rawName) return;
+        const key = rawName.toLowerCase();
+        displayNames[key] = rawName;
+        balances[key] = (balances[key] || 0) + num(pt.given) - num(pt.received);
+      });
+    });
+    // Re-key by display name (prefer a real transaction's casing over the raw lowercase key)
+    const finalBalances = {};
+    Object.keys(balances).forEach(key => {
+      finalBalances[displayNames[key] || key] = balances[key];
+    });
+    return finalBalances;
+  }
+
+  function getKnownPartyNames(){
+    const names = new Set();
+    Object.keys(allEntries).forEach(d => {
+      (allEntries[d].parties || []).forEach(pt => { if(pt.name && pt.name.trim()) names.add(pt.name.trim()); });
+    });
+    return Array.from(names).sort();
+  }
+
+  // ---------- Employee/Salesman advance tracking (same mechanics as parties, separate namespace) ----------
+  let employeeOpeningBalances = {};
+
+  async function loadEmployeeOpeningBalances(){
+    try{
+      const listRes = await storage.list('employeeopening:');
+      const keys = (listRes && listRes.keys) || [];
+      const results = await Promise.all(keys.map(async (k) => {
+        try{
+          const r = await storage.get(k);
+          return r ? [k.replace('employeeopening:',''), num(r.value)] : null;
+        }catch(e){ return null; }
+      }));
+      employeeOpeningBalances = {};
+      results.forEach(pair => { if(pair) employeeOpeningBalances[pair[0]] = pair[1]; });
+    }catch(e){
+      console.error('Employee opening balance load error', e);
+      employeeOpeningBalances = {};
+    }
+  }
+
+  async function setEmployeeOpeningBalance(name, amount){
+    const key = name.trim().toLowerCase();
+    const val = num(amount);
+    employeeOpeningBalances[key] = val;
+    await storage.set('employeeopening:' + key, String(val));
+  }
+
+  function getEmployeeBalanceBefore(name, currentDate){
+    if(!name) return 0;
+    const key = name.trim().toLowerCase();
+    const dates = Object.keys(allEntries).filter(d => d !== currentDate && (!currentDate || d < currentDate)).sort();
+    let balance = employeeOpeningBalances[key] || 0;
+    dates.forEach(d => {
+      (allEntries[d].employees || []).forEach(em => {
+        if((em.name || '').trim().toLowerCase() === key){
+          balance += num(em.given) - num(em.received);
+        }
+      });
+    });
+    return balance;
+  }
+
+  function getAllEmployeeBalances(){
+    const balances = {};
+    Object.keys(employeeOpeningBalances).forEach(key => {
+      if(employeeOpeningBalances[key]) balances[key] = employeeOpeningBalances[key];
+    });
+    const displayNames = {};
+    Object.keys(allEntries).sort().forEach(d => {
+      (allEntries[d].employees || []).forEach(em => {
+        const rawName = (em.name || '').trim();
+        if(!rawName) return;
+        const key = rawName.toLowerCase();
+        displayNames[key] = rawName;
+        balances[key] = (balances[key] || 0) + num(em.given) - num(em.received);
+      });
+    });
+    const finalBalances = {};
+    Object.keys(balances).forEach(key => {
+      finalBalances[displayNames[key] || key] = balances[key];
+    });
+    return finalBalances;
+  }
+
+  function getKnownEmployeeNames(){
+    const names = new Set();
+    Object.keys(allEntries).forEach(d => {
+      (allEntries[d].employees || []).forEach(em => { if(em.name && em.name.trim()) names.add(em.name.trim()); });
+    });
+    return Array.from(names).sort();
+  }
+
+  // ---------- Rendering: month view ----------
+  function renderMonthLabel(){ $('monthLabel').textContent = HI_MONTHS[currentMonth.getMonth()] + ' ' + currentMonth.getFullYear(); }
+
+  function entriesForCurrentMonth(){
+    const mk = monthKey(currentMonth);
+    return Object.keys(allEntries)
+      .filter(d => d.startsWith(mk))
+      .sort((a,b) => b.localeCompare(a))
+      .map(d => ({date:d, data:allEntries[d]}));
+  }
+
+  function entryHasFlag(date, data){
+    // nozzle mismatch check
+    for(const fk of ['petrol','diesel']){
+      const nozzles = (data[fk] && data[fk].nozzles) || [];
+      for(const n of nozzles){
+        if(!hasVal(n.opening)) continue;
+        const prev = getPreviousNozzleClosing(fk, n.label, date);
+        if(prev && Math.abs(num(n.opening) - prev.value) > 0.01) return true;
+      }
+    }
+    // tank continuity mismatch check
+    for(const fk of ['petrol','diesel']){
+      const tanks = (data[fk] && data[fk].tanks) || [];
+      for(const t of tanks){
+        if(!hasVal(t.openingDipCm)) continue;
+        const prev = getPreviousTankClosing(fk, t.label, date);
+        if(prev && Math.abs(num(t.openingDipCm) - prev.value) > 0.01) return true;
+      }
+    }
+    // party register-closing mismatch check
+    for(const pt of (data.parties || [])){
+      if(!pt.name || !hasVal(pt.registerClosing)) continue;
+      const opening = getPartyBalanceBefore(pt.name, date);
+      const computedClosing = opening + num(pt.given) - num(pt.received);
+      if(Math.abs(num(pt.registerClosing) - computedClosing) > 1) return true;
+    }
+    // cash mismatch check
+    if(calcEntry(data).cashMismatch) return true;
+    return false;
+  }
+
+  function renderSummary(){
+    const entries = entriesForCurrentMonth();
+    let totalSale=0, totalKharch=0, totalGiven=0, totalReceived=0, totalCash=0, totalMargin=0, anyMargin=false;
+    entries.forEach(({data}) => {
+      const c = calcEntry(data);
+      totalSale += c.totalSale;
+      totalKharch += c.kharch;
+      totalGiven += c.totalGiven;
+      totalReceived += c.totalReceived;
+      totalCash += (c.hasActualCash ? c.actualCash : c.computedCash);
+      if(c.hasMargin){ totalMargin += c.netProfit; anyMargin = true; }
+    });
+    const allBalances = getAllPartyBalances();
+    const totalOutstanding = Object.values(allBalances).reduce((a,b) => a+b, 0);
+
+    let cards = `
+      <div class="stat-card"><div class="label">Kul Sale</div><div class="value">${fmtINR(totalSale)}</div></div>
+      <div class="stat-card"><div class="label">Kul Kharch</div><div class="value">${fmtINR(totalKharch)}</div></div>
+      <div class="stat-card credit"><div class="label">Udhaar Diya (is mahine)</div><div class="value">${fmtINR(totalGiven)}</div></div>
+      <div class="stat-card credit"><div class="label">Udhaar Wapas Aaya</div><div class="value">${fmtINR(totalReceived)}</div></div>
+      <div class="stat-card cash"><div class="label">Net Cash Collected</div><div class="value">${fmtINR(totalCash)}</div></div>
+      <div class="stat-card credit"><div class="label">Total Outstanding (sabhi party)</div><div class="value">${fmtINR(totalOutstanding)}</div></div>
+    `;
+    if(anyMargin){
+      const cls = totalMargin < 0 ? 'loss' : 'profit';
+      cards += `<div class="stat-card ${cls}"><div class="label">${totalMargin < 0 ? 'Net Loss' : 'Net Profit'}</div><div class="value">${fmtINR(Math.abs(totalMargin))}</div></div>`;
+    }
+    $('summaryScroll').innerHTML = cards;
+  }
+
+  function renderList(){
+    const entries = entriesForCurrentMonth();
+    const listArea = $('listArea');
+    if(entries.length === 0){
+      listArea.innerHTML = `<div class="empty-state">Is mahine abhi koi entry nahi hai.<br>Upar button dabaakar apna pehla din ka hisab jodo.</div>`;
+      return;
+    }
+    const rows = entries.map(({date, data}) => {
+      const c = calcEntry(data);
+      const d = new Date(date + 'T00:00:00');
+      const cashShown = c.hasActualCash ? c.actualCash : c.computedCash;
+      const rightVal = c.hasMargin ? c.netProfit : cashShown;
+      const rightLabel = c.hasMargin ? (c.netProfit < 0 ? 'loss' : 'profit') : 'net cash';
+      const netClass = c.hasMargin ? (c.netProfit < 0 ? 'loss' : 'profit') : (cashShown < 0 ? 'loss' : 'profit');
+      const flagged = entryHasFlag(date, data);
+      return `
+        <div class="entry-row" data-date="${date}">
+          <div class="entry-date"><div class="day">${d.getDate()}</div><div class="wd">${HI_WD[d.getDay()]}</div></div>
+          <div class="entry-mid">
+            <div class="entry-fuels">
+              <span class="p">P ${fmtL(c.p.totalLitres)}L</span> &nbsp;·&nbsp; <span class="d">D ${fmtL(c.d.totalLitres)}L</span>
+              ${flagged ? ' &nbsp;<span class="entry-flag">⚠</span>' : ''}
+            </div>
+            <div class="entry-sales">${fmtINR(c.totalSale)}</div>
+          </div>
+          <div class="entry-right">
+            <div class="entry-net ${netClass}">${rightVal < 0 ? '-' : ''}${fmtINR(Math.abs(rightVal))}</div>
+            <div class="entry-net-label">${rightLabel}</div>
+          </div>
+          <button type="button" class="entry-pdf-btn" data-date="${date}" title="PDF Banao">📄</button>
+        </div>
+      `;
+    }).join('');
+    listArea.innerHTML = `<div class="ledger">${rows}</div>`;
+    listArea.querySelectorAll('.entry-row').forEach(row => {
+      row.addEventListener('click', (e) => {
+        if(e.target.classList.contains('entry-pdf-btn')) return;
+        openForm(row.dataset.date);
+      });
+    });
+    listArea.querySelectorAll('.entry-pdf-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const date = btn.dataset.date;
+        generateDailyPdf(date, allEntries[date]);
+      });
+    });
+  }
+
+  let partyOpeningEditKey = null; // lowercase key of party currently being edited inline, or '__new__'
+  let employeeOpeningEditKey = null;
+
+  function renderPartyBalances(){
+    const balances = getAllPartyBalances();
+    const area = $('partyBalanceArea');
+    const names = Object.keys(balances).sort((a,b) => balances[b] - balances[a]);
+    let html = '';
+    if(names.length === 0){
+      html = `<div class="empty-state">Abhi koi party ka udhaar record nahi hai.</div>`;
+    } else {
+      html = `<div class="party-balances">${names.map(n => {
+        const key = n.trim().toLowerCase();
+        const v = balances[n];
+        const cls = v > 0.5 ? 'owe' : (v < -0.5 ? 'owe' : 'zero');
+        if(partyOpeningEditKey === key){
+          return `<div class="party-balance-row party-opening-editing">
+            <span class="pname">${n}</span>
+            <input type="number" inputmode="decimal" class="party-opening-input" id="partyOpeningInput" value="${partyOpeningBalances[key] || ''}" placeholder="Opening Balance ₹">
+            <button type="button" class="party-opening-save-btn" data-name="${n}">Save</button>
+            <button type="button" class="party-opening-cancel-btn">✕</button>
+          </div>`;
+        }
+        return `<div class="party-balance-row"><span class="pname">${n}</span><span class="pval ${cls}">${fmtINR(v)}</span><button type="button" class="ledger-pdf-btn" data-name="${n}" data-kind="party" title="Ledger PDF">📄</button><button type="button" class="party-opening-edit-btn" data-name="${n}" title="Opening Balance Set Karo">✎</button></div>`;
+      }).join('')}</div>`;
+    }
+    if(partyOpeningEditKey === '__new__'){
+      html += `
+        <div class="party-balance-row party-opening-editing" style="margin-top:10px; border:1px solid var(--line); border-radius: var(--radius-s);">
+          <input type="text" id="newPartyNameInput" placeholder="Party ka naam" style="flex:1; padding:8px 10px; background:var(--bg-deep); border:1px solid var(--line); border-radius:var(--radius-s); color:var(--ink); font-size:13px;">
+          <input type="number" inputmode="decimal" id="newPartyOpeningInput" placeholder="Opening ₹" style="width:110px; padding:8px 10px; background:var(--bg-deep); border:1px solid var(--line); border-radius:var(--radius-s); color:var(--ink); font-size:13px;">
+          <button type="button" class="party-opening-save-btn" id="saveNewPartyBtn">Save</button>
+          <button type="button" class="party-opening-cancel-btn">✕</button>
+        </div>`;
+    } else {
+      html += `<button type="button" class="backup-btn" id="setNewOpeningBtn" style="margin-top:10px;">+ Naye Party ka Opening Balance Set Karo</button>`;
+    }
+    area.innerHTML = html;
+  }
+
+  async function saveOpeningBalanceInline(name){
+    const input = $('partyOpeningInput');
+    if(!input) return;
+    await setPartyOpeningBalance(name, input.value);
+    partyOpeningEditKey = null;
+    renderAll();
+  }
+
+  async function saveNewPartyOpeningInline(){
+    const nameInput = $('newPartyNameInput');
+    const amountInput = $('newPartyOpeningInput');
+    const name = (nameInput && nameInput.value || '').trim();
+    if(!name){ nameInput.focus(); return; }
+    await setPartyOpeningBalance(name, amountInput ? amountInput.value : '0');
+    partyOpeningEditKey = null;
+    renderAll();
+  }
+
+  function renderEmployeeBalances(){
+    const balances = getAllEmployeeBalances();
+    const area = $('employeeBalanceArea');
+    const names = Object.keys(balances).sort((a,b) => balances[b] - balances[a]);
+    let html = '';
+    if(names.length === 0){
+      html = `<div class="empty-state">Abhi koi employee ka advance record nahi hai.</div>`;
+    } else {
+      html = `<div class="party-balances">${names.map(n => {
+        const key = n.trim().toLowerCase();
+        const v = balances[n];
+        const cls = v > 0.5 ? 'owe' : (v < -0.5 ? 'owe' : 'zero');
+        if(employeeOpeningEditKey === key){
+          return `<div class="party-balance-row party-opening-editing">
+            <span class="pname">${n}</span>
+            <input type="number" inputmode="decimal" class="employee-opening-input" id="employeeOpeningInput" value="${employeeOpeningBalances[key] || ''}" placeholder="Opening Balance ₹">
+            <button type="button" class="employee-opening-save-btn" data-name="${n}">Save</button>
+            <button type="button" class="employee-opening-cancel-btn">✕</button>
+          </div>`;
+        }
+        return `<div class="party-balance-row"><span class="pname">${n}</span><span class="pval ${cls}">${fmtINR(v)}</span><button type="button" class="ledger-pdf-btn" data-name="${n}" data-kind="employee" title="Ledger PDF">📄</button><button type="button" class="employee-opening-edit-btn" data-name="${n}" title="Opening Balance Set Karo">✎</button></div>`;
+      }).join('')}</div>`;
+    }
+    if(employeeOpeningEditKey === '__new__'){
+      html += `
+        <div class="party-balance-row party-opening-editing" style="margin-top:10px; border:1px solid var(--line); border-radius: var(--radius-s);">
+          <input type="text" id="newEmployeeNameInput" placeholder="Employee ka naam" style="flex:1; padding:8px 10px; background:var(--bg-deep); border:1px solid var(--line); border-radius:var(--radius-s); color:var(--ink); font-size:13px;">
+          <input type="number" inputmode="decimal" id="newEmployeeOpeningInput" placeholder="Opening ₹" style="width:110px; padding:8px 10px; background:var(--bg-deep); border:1px solid var(--line); border-radius:var(--radius-s); color:var(--ink); font-size:13px;">
+          <button type="button" class="employee-opening-save-btn" id="saveNewEmployeeBtn">Save</button>
+          <button type="button" class="employee-opening-cancel-btn">✕</button>
+        </div>`;
+    } else {
+      html += `<button type="button" class="backup-btn" id="setNewEmployeeOpeningBtn" style="margin-top:10px;">+ Naye Employee ka Opening Balance Set Karo</button>`;
+    }
+    area.innerHTML = html;
+  }
+
+  async function saveEmployeeOpeningBalanceInline(name){
+    const input = $('employeeOpeningInput');
+    if(!input) return;
+    await setEmployeeOpeningBalance(name, input.value);
+    employeeOpeningEditKey = null;
+    renderAll();
+  }
+
+  async function saveNewEmployeeOpeningInline(){
+    const nameInput = $('newEmployeeNameInput');
+    const amountInput = $('newEmployeeOpeningInput');
+    const name = (nameInput && nameInput.value || '').trim();
+    if(!name){ nameInput.focus(); return; }
+    await setEmployeeOpeningBalance(name, amountInput ? amountInput.value : '0');
+    employeeOpeningEditKey = null;
+    renderAll();
+  }
+
+  function renderAll(){
+    renderMonthLabel();
+    renderSummary();
+    renderList();
+    renderPartyBalances();
+    renderEmployeeBalances();
+    $('knownPartyNames').innerHTML = getKnownPartyNames().map(n => `<option value="${n}">`).join('');
+    $('knownEmployeeNames').innerHTML = getKnownEmployeeNames().map(n => `<option value="${n}">`).join('');
+  }
+
+  // ---------- Nozzle rows ----------
+  function renderNozzles(fuelKey){
+    const container = $(fuelKey + 'Nozzles');
+    const nozzles = formState[fuelKey].nozzles;
+    const currentDate = $('f_date').value;
+    container.innerHTML = nozzles.map((n, i) => `
+      <div class="nozzle-row" data-fuel="${fuelKey}" data-idx="${i}">
+        <div class="nozzle-row-head">
+          <input type="text" class="noz-label" data-fuel="${fuelKey}" data-idx="${i}" value="${n.label || ('Nozzle ' + (i+1))}" placeholder="Nozzle naam">
+          ${nozzles.length > 1 ? `<button type="button" class="nozzle-remove" data-fuel="${fuelKey}" data-idx="${i}">Hatao</button>` : ''}
+        </div>
+        <div class="three-col">
+          <div class="field-row"><label>Opening</label><input type="number" inputmode="decimal" class="noz-input" data-field="opening" data-fuel="${fuelKey}" data-idx="${i}" value="${n.opening}" placeholder="0"></div>
+          <div class="field-row"><label>Closing</label><input type="number" inputmode="decimal" class="noz-input" data-field="closing" data-fuel="${fuelKey}" data-idx="${i}" value="${n.closing}" placeholder="0"></div>
+          <div class="field-row"><label>Testing</label><input type="number" inputmode="decimal" class="noz-input" data-field="testing" data-fuel="${fuelKey}" data-idx="${i}" value="${n.testing}" placeholder="0"></div>
+        </div>
+        <div class="nozzle-live" data-live="${fuelKey}-${i}"></div>
+      </div>
+    `).join('');
+    updateNozzleLiveValues(fuelKey);
+  }
+
+  function updateNozzleLiveValues(fuelKey){
+    const fuel = formState[fuelKey];
+    const rate = num(fuel.rate);
+    const currentDate = $('f_date').value;
+    fuel.nozzles.forEach((n, i) => {
+      const o = num(n.opening), c = num(n.closing), t = num(n.testing);
+      let net = c - o - t;
+      if(net < 0 || !isFinite(net)) net = 0;
+      const sale = net * rate;
+      const el = document.querySelector(`[data-live="${fuelKey}-${i}"]`);
+      const openingInput = document.querySelector(`.noz-input[data-field="opening"][data-fuel="${fuelKey}"][data-idx="${i}"]`);
+      let checkHtml = '';
+      if(hasVal(n.opening) && n.label){
+        const prev = getPreviousNozzleClosing(fuelKey, n.label, currentDate);
+        if(prev){
+          if(Math.abs(num(n.opening) - prev.value) > 0.01){
+            checkHtml = `<span class="mismatch-warn">⚠ Opening (${fmtL(num(n.opening))}) pichle closing (${fmtL(prev.value)}, ${prev.date}) se match nahi karta</span>`;
+            if(openingInput) openingInput.classList.add('mismatch');
+          } else {
+            checkHtml = `<span class="match-ok">✓ Pichle closing se match karta hai</span>`;
+            if(openingInput) openingInput.classList.remove('mismatch');
+          }
+        } else {
+          if(openingInput) openingInput.classList.remove('mismatch');
+        }
+      } else if(openingInput){
+        openingInput.classList.remove('mismatch');
+      }
+      if(el) el.innerHTML = `Net: <b>${fmtL(net)} L</b> &nbsp;·&nbsp; Sale: <b>${fmtINR(sale)}</b>${checkHtml ? '<br>' + checkHtml : ''}`;
+    });
+    const totals = calcFuel(fuel);
+    $(fuelKey + 'Totals').textContent = fmtL(totals.totalLitres) + ' L · ' + fmtINR(totals.sale);
+  }
+
+  // ---------- Dip chart storage & interpolation ----------
+  let dipCharts = {}; // key: "fuelKey:label" -> [{cm, litres}, ...] sorted by cm
+
+  function chartKey(fuelKey, label){ return fuelKey + ':' + (label || '').trim().toLowerCase(); }
+
+  function getChart(fuelKey, label){
+    return dipCharts[chartKey(fuelKey, label)] || [];
+  }
+
+  async function loadDipCharts(){
+    try{
+      const listRes = await storage.list('dipchart:');
+      const keys = (listRes && listRes.keys) || [];
+      const results = await Promise.all(keys.map(async (k) => {
+        try{
+          const r = await storage.get(k);
+          return r ? [k.replace('dipchart:',''), JSON.parse(r.value)] : null;
+        }catch(e){ return null; }
+      }));
+      dipCharts = {};
+      results.forEach(pair => { if(pair) dipCharts[pair[0]] = pair[1]; });
+    }catch(e){
+      console.error('Dip chart load error', e);
+      dipCharts = {};
+    }
+  }
+
+  async function saveDipChart(fuelKey, label, points){
+    const key = chartKey(fuelKey, label);
+    const cleaned = points
+      .map(p => ({ cm: num(p.cm), litres: num(p.litres) }))
+      .filter(p => hasVal(p.cm) || p.cm !== 0 || p.litres !== 0)
+      .sort((a,b) => a.cm - b.cm);
+    dipCharts[key] = cleaned;
+    await storage.set('dipchart:' + key, JSON.stringify(cleaned));
+    return cleaned;
+  }
+
+  // ---------- Calibration chart import (Excel/CSV) ----------
+  function parseCalibrationWorkbook(arrayBuffer, filename){
+    let aoa;
+    if(/\.csv$/i.test(filename || '')){
+      const text = new TextDecoder().decode(arrayBuffer);
+      const wb = XLSX.read(text, { type: 'string' });
+      aoa = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: null });
+    } else {
+      const wb = XLSX.read(arrayBuffer, { type: 'array' });
+      aoa = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: null });
+    }
+    let headerRowIdx = -1, pairs = [];
+    for(let r = 0; r < Math.min(aoa.length, 30); r++){
+      const row = aoa[r] || [];
+      const found = [];
+      for(let c = 0; c < row.length; c++){
+        const cell = row[c];
+        if(typeof cell === 'string' && /dip/i.test(cell)){
+          for(let c2 = c + 1; c2 <= c + 2 && c2 < row.length; c2++){
+            const cell2 = row[c2];
+            if(typeof cell2 === 'string' && /(vol|litre|liter)/i.test(cell2)){
+              found.push({ dipCol: c, volCol: c2 });
+              break;
+            }
+          }
+        }
+      }
+      if(found.length){ headerRowIdx = r; pairs = found; break; }
+    }
+    if(headerRowIdx === -1 || pairs.length === 0) return null;
+    const seen = new Map();
+    pairs.forEach(({dipCol, volCol}) => {
+      for(let r = headerRowIdx + 1; r < aoa.length; r++){
+        const row = aoa[r] || [];
+        const dip = row[dipCol], vol = row[volCol];
+        if(typeof dip === 'number' && isFinite(dip) && typeof vol === 'number' && isFinite(vol)){
+          if(!seen.has(dip)) seen.set(dip, vol);
+        }
+      }
+    });
+    if(seen.size === 0) return null;
+    return Array.from(seen.entries()).map(([cm, litres]) => ({cm, litres})).sort((a,b) => a.cm - b.cm);
+  }
+
+  async function handleDipImportFile(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const fuel = e.target.dataset.fuel, idx = parseInt(e.target.dataset.idx, 10);
+    const key = fuel + '-' + idx;
+    const statusEl = document.querySelector(`[data-import-status="${key}"]`);
+    if(statusEl) statusEl.textContent = 'File padhi ja rahi hai...';
+    try{
+      if(typeof XLSX === 'undefined') throw new Error('Excel reader load nahi ho paya, internet check karein');
+      const buffer = await file.arrayBuffer();
+      const points = parseCalibrationWorkbook(buffer, file.name);
+      if(!points || points.length === 0) throw new Error('Is file mein "DIP" aur "VOL/LITRE" wale column headers nahi mile');
+      chartEditorState[key] = points;
+      chartEditorMode[key] = points.length > 25 ? 'compact' : 'full';
+      renderDipChartEditor(fuel, idx, points);
+      const newStatusEl = document.querySelector(`[data-import-status="${key}"]`);
+      if(newStatusEl) newStatusEl.textContent = points.length + ' points file se mil gaye. Check karke "Chart Save Karo" dabao.';
+    }catch(err){
+      console.error(err);
+      const errEl = document.querySelector(`[data-import-status="${key}"]`);
+      if(errEl) errEl.textContent = 'File padhne mein dikkat: ' + (err && err.message ? err.message : 'anjaan error');
+    }
+  }
+
+  const CHART_EXTRACT_PROMPT = `Yeh photo ek tank dip/calibration chart ki hai jisme dip reading (cm) aur uske corresponding volume (litres) ke jode table format mein likhe hote hain (jaise oil company ka official calibration chart, ya haath se banaya hua chart). Jitne bhi (dip cm, volume litre) jode is photo mein saaf-saaf dikh rahe hain unhe nikaal kar neeche diye JSON schema mein do. Sirf wahi jode do jo clearly padhe ja sakte hain — kabhi andaza mat lagao. Agar chart bahut lamba hai aur sab kuch ek photo mein nahi aa raha, jitna dikh raha hai utna hi do aur confidence_note mein bata do ki chart adhoora ho sakta hai.
+
+Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na extra text:
+{"points":[{"cm":"","litres":""}],"confidence_note":""}`;
+
+  async function callClaudeVisionForChart(base64Data, mediaType){
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 4000,
+        messages: [{ role: "user", content: [
+          { type: "image", source: { type: "base64", media_type: mediaType, data: base64Data } },
+          { type: "text", text: CHART_EXTRACT_PROMPT }
+        ]}]
+      })
+    });
+    if(!response.ok){
+      let detail = '';
+      try{ const errBody = await response.json(); detail = (errBody && errBody.error && errBody.error.message) || ''; }catch(e){}
+      throw new Error('API error ' + response.status + (detail ? (': ' + detail) : ''));
+    }
+    const data = await response.json();
+    const textBlock = (data.content || []).find(b => b.type === 'text');
+    if(!textBlock){ throw new Error('Response mein text nahi mila'); }
+    const raw = textBlock.text;
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    if(start === -1 || end === -1){ throw new Error('JSON nahi mila response mein'); }
+    return JSON.parse(raw.slice(start, end + 1));
+  }
+
+  async function handleDipImportPhoto(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const fuel = e.target.dataset.fuel, idx = parseInt(e.target.dataset.idx, 10);
+    const key = fuel + '-' + idx;
+    const statusEl = document.querySelector(`[data-import-status="${key}"]`);
+    if(statusEl) statusEl.textContent = 'Photo padhi ja rahi hai...';
+    try{
+      const normalized = await normalizeImageToJpegBase64(file);
+      if(!normalized) throw new Error('Photo process nahi ho paayi');
+      const result = await callClaudeVisionForChart(normalized.base64, normalized.mediaType);
+      const rawPoints = Array.isArray(result.points) ? result.points : [];
+      const points = rawPoints
+        .map(p => ({ cm: sanitizeNumber(p && p.cm), litres: sanitizeNumber(p && p.litres) }))
+        .filter(p => p.cm !== '' && p.litres !== '')
+        .map(p => ({ cm: num(p.cm), litres: num(p.litres) }))
+        .sort((a,b) => a.cm - b.cm);
+      if(points.length === 0) throw new Error('Photo se koi (cm, litre) jode nahi mile');
+      chartEditorState[key] = points;
+      chartEditorMode[key] = points.length > 25 ? 'compact' : 'full';
+      renderDipChartEditor(fuel, idx, points);
+      const newStatusEl = document.querySelector(`[data-import-status="${key}"]`);
+      if(newStatusEl) newStatusEl.textContent = points.length + ' points photo se mile. Register/chart se milaan karke "Chart Save Karo" dabao.' + (result.confidence_note ? (' ' + result.confidence_note) : '');
+    }catch(err){
+      console.error(err);
+      const errEl = document.querySelector(`[data-import-status="${key}"]`);
+      if(errEl) errEl.textContent = 'Photo padhne mein dikkat: ' + (err && err.message ? err.message : 'anjaan error');
+    }
+  }
+
+  function interpolateLitres(fuelKey, label, cm){
+    const chart = getChart(fuelKey, label);
+    if(!hasVal(cm) || chart.length < 2) return null;
+    cm = num(cm);
+    if(cm <= chart[0].cm) return chart[0].litres;
+    if(cm >= chart[chart.length-1].cm) return chart[chart.length-1].litres;
+    for(let i = 0; i < chart.length - 1; i++){
+      const p1 = chart[i], p2 = chart[i+1];
+      if(cm >= p1.cm && cm <= p2.cm){
+        if(p2.cm === p1.cm) return p1.litres;
+        return p1.litres + (cm - p1.cm) / (p2.cm - p1.cm) * (p2.litres - p1.litres);
+      }
+    }
+    return null;
+  }
+
+  // ---------- Tank / dip rows ----------
+  function renderTanks(fuelKey){
+    const container = $(fuelKey + 'Tanks');
+    const tanks = formState[fuelKey].tanks;
+    container.innerHTML = tanks.map((t, i) => {
+      const chart = getChart(fuelKey, t.label);
+      const chartInfo = chart.length >= 2 ? `Chart set hai (${chart.length} points)` : 'Dip chart abhi set nahi hai';
+      return `
+      <div class="tank-row" data-fuel="${fuelKey}" data-idx="${i}">
+        <div class="tank-row-head">
+          <input type="text" class="tank-label" data-fuel="${fuelKey}" data-idx="${i}" value="${t.label || ('Tank ' + (i+1))}" placeholder="Tank naam">
+          ${tanks.length > 1 ? `<button type="button" class="tank-remove" data-fuel="${fuelKey}" data-idx="${i}">Hatao</button>` : ''}
+        </div>
+        <div class="tank-row-actions">
+          <button type="button" class="dip-chart-toggle" data-fuel="${fuelKey}" data-idx="${i}">${chartInfo} — Chart Kholo</button>
+        </div>
+        <div class="dip-chart-editor" data-chart-editor="${fuelKey}-${i}"></div>
+        <div class="three-col">
+          <div class="field-row"><label>Opening Dip (cm)</label><input type="number" inputmode="decimal" class="tank-input" data-field="openingDipCm" data-fuel="${fuelKey}" data-idx="${i}" value="${t.openingDipCm}" placeholder="0"></div>
+          <div class="field-row"><label>Purchase Mila (L)</label><input type="number" inputmode="decimal" class="tank-input" data-field="purchase" data-fuel="${fuelKey}" data-idx="${i}" value="${t.purchase}" placeholder="0"></div>
+          <div class="field-row"><label>Closing Dip (cm)</label><input type="number" inputmode="decimal" class="tank-input" data-field="closingDipCm" data-fuel="${fuelKey}" data-idx="${i}" value="${t.closingDipCm}" placeholder="0"></div>
+        </div>
+        <div class="tank-live" data-tank-live="${fuelKey}-${i}"></div>
+      </div>
+    `;
+    }).join('');
+    updateTankLiveValues(fuelKey);
+  }
+
+  const chartEditorState = {}; // "fuelKey-idx" -> temp points array while editing
+  const chartEditorMode = {}; // "fuelKey-idx" -> 'full' | 'compact'
+
+  function chartImportControlsHtml(fuelKey, idx){
+    const key = fuelKey + '-' + idx;
+    return `
+      <div class="dip-import-row">
+        <label class="dip-import-label">BPCL Standard Chart (ek click mein)</label>
+        <div class="dip-preset-row">
+          <button type="button" class="dip-preset-btn" data-preset="15kl" data-idx="${idx}" data-fuel="${fuelKey}">15KL Tank Chart Use Karo</button>
+          <button type="button" class="dip-preset-btn" data-preset="20kl" data-idx="${idx}" data-fuel="${fuelKey}">20KL Tank Chart Use Karo</button>
+        </div>
+      </div>
+      <div class="dip-import-row">
+        <label class="dip-import-label">Ya Apna Excel/CSV Chart Import Karo</label>
+        <input type="file" accept=".xlsx,.xls,.csv" class="dip-import-file" data-idx="${idx}" data-fuel="${fuelKey}">
+      </div>
+      <div class="dip-import-row">
+        <label class="dip-import-label">Ya Chart ki Photo se AI Padhwao</label>
+        <input type="file" accept="image/*" class="dip-import-photo" data-idx="${idx}" data-fuel="${fuelKey}">
+      </div>
+      <div class="dip-import-status" data-import-status="${key}"></div>
+    `;
+  }
+
+  function renderDipChartEditor(fuelKey, idx, tempPoints){
+    const el = document.querySelector(`[data-chart-editor="${fuelKey}-${idx}"]`);
+    if(!el) return;
+    const key = fuelKey + '-' + idx;
+    if(chartEditorMode[key] === undefined){
+      chartEditorMode[key] = tempPoints.length > 25 ? 'compact' : 'full';
+    }
+    const titleHtml = `<div class="dip-chart-editor-title">Is tank ke dip-chart ke jode (cm → litre) daalo — manually type karo, ya seedha company ka Excel/CSV calibration chart, ya uski photo upload karo.</div>`;
+    const importHtml = chartImportControlsHtml(fuelKey, idx);
+
+    if(chartEditorMode[key] === 'compact' && tempPoints.length > 25){
+      const valid = tempPoints.filter(p => hasVal(p.cm) && hasVal(p.litres)).map(p => ({cm:num(p.cm), litres:num(p.litres)})).sort((a,b) => a.cm - b.cm);
+      const minCm = valid.length ? valid[0].cm : 0;
+      const maxCm = valid.length ? valid[valid.length-1].cm : 0;
+      el.innerHTML = `
+        ${titleHtml}
+        ${importHtml}
+        <div class="dip-chart-compact-summary"><b>${tempPoints.length}</b> points loaded (${fmtL(minCm)} cm – ${fmtL(maxCm)} cm)</div>
+        <div class="dip-chart-editor-actions">
+          <button type="button" class="show-all-points-btn" data-idx="${idx}" data-fuel="${fuelKey}">Sabhi Points Dikhao/Edit Karo</button>
+          <button type="button" class="save-chart-btn" data-idx="${idx}" data-fuel="${fuelKey}">Chart Save Karo</button>
+        </div>
+        <div class="dip-chart-status" data-chart-status="${key}"></div>
+      `;
+      return;
+    }
+
+    const rows = tempPoints.map((p, pi) => `
+      <div class="dip-point-row" data-pi="${pi}">
+        <input type="number" inputmode="decimal" class="dip-point-cm" data-idx="${idx}" data-fuel="${fuelKey}" data-pi="${pi}" value="${p.cm}" placeholder="Dip (cm)">
+        <input type="number" inputmode="decimal" class="dip-point-litres" data-idx="${idx}" data-fuel="${fuelKey}" data-pi="${pi}" value="${p.litres}" placeholder="Litre">
+        ${tempPoints.length > 1 ? `<button type="button" class="dip-point-remove" data-idx="${idx}" data-fuel="${fuelKey}" data-pi="${pi}">✕</button>` : '<span></span>'}
+      </div>
+    `).join('');
+    el.innerHTML = `
+      ${titleHtml}
+      ${importHtml}
+      ${tempPoints.length > 25 ? `<div class="dip-chart-compact-summary">${tempPoints.length} points — neeche scroll karke check/edit kar sakte hain.</div>` : ''}
+      ${rows}
+      <div class="dip-chart-editor-actions">
+        <button type="button" class="add-dip-point-btn" data-idx="${idx}" data-fuel="${fuelKey}">+ Point Jodo</button>
+        <button type="button" class="save-chart-btn" data-idx="${idx}" data-fuel="${fuelKey}">Chart Save Karo</button>
+      </div>
+      <div class="dip-chart-status" data-chart-status="${key}"></div>
+    `;
+  }
+
+  function toggleDipChartEditor(fuelKey, idx){
+    const editorKey = fuelKey + '-' + idx;
+    const el = document.querySelector(`[data-chart-editor="${fuelKey}-${idx}"]`);
+    const isOpen = el.classList.contains('open');
+    if(isOpen){
+      el.classList.remove('open');
+      return;
+    }
+    const label = formState[fuelKey].tanks[idx].label;
+    const existing = getChart(fuelKey, label);
+    chartEditorState[editorKey] = existing.length ? existing.map(p => ({cm:p.cm, litres:p.litres})) : [{cm:'',litres:''},{cm:'',litres:''}];
+    chartEditorMode[editorKey] = chartEditorState[editorKey].length > 25 ? 'compact' : 'full';
+    renderDipChartEditor(fuelKey, idx, chartEditorState[editorKey]);
+    el.classList.add('open');
+  }
+
+  // ---------- Tank / dip rows ----------
+
+  function updateTankLiveValues(fuelKey){
+    const fuel = formState[fuelKey];
+    const currentDate = $('f_date').value;
+    fuel.tanks.forEach((t, i) => {
+      const el = document.querySelector(`[data-tank-live="${fuelKey}-${i}"]`);
+      const openingInput = document.querySelector(`.tank-input[data-field="openingDipCm"][data-fuel="${fuelKey}"][data-idx="${i}"]`);
+      let checkHtml = '';
+      if(hasVal(t.openingDipCm) && t.label){
+        const prev = getPreviousTankClosing(fuelKey, t.label, currentDate);
+        if(prev){
+          if(Math.abs(num(t.openingDipCm) - prev.value) > 0.01){
+            checkHtml = `<span class="mismatch-warn">⚠ Opening Dip (${fmtL(num(t.openingDipCm))} cm) pichle closing dip (${fmtL(prev.value)} cm, ${prev.date}) se match nahi karta</span>`;
+            if(openingInput) openingInput.classList.add('mismatch');
+          } else {
+            checkHtml = `<span class="match-ok">✓ Pichle closing dip se match karta hai</span>`;
+            if(openingInput) openingInput.classList.remove('mismatch');
+          }
+        } else if(openingInput){ openingInput.classList.remove('mismatch'); }
+      } else if(openingInput){ openingInput.classList.remove('mismatch'); }
+      const chart = getChart(fuelKey, t.label);
+      if(chart.length >= 2){
+        const oL = hasVal(t.openingDipCm) ? interpolateLitres(fuelKey, t.label, t.openingDipCm) : null;
+        const cL = hasVal(t.closingDipCm) ? interpolateLitres(fuelKey, t.label, t.closingDipCm) : null;
+        let litreLine = '';
+        if(oL !== null) litreLine += `Opening: <b>${fmtL(oL)} L</b>`;
+        if(cL !== null) litreLine += (litreLine ? ' &nbsp;·&nbsp; ' : '') + `Closing: <b>${fmtL(cL)} L</b>`;
+        if(litreLine) checkHtml = (checkHtml ? checkHtml + '<br>' : '') + litreLine + ' (chart se)';
+      }
+      if(el) el.innerHTML = checkHtml;
+    });
+    renderStockVariation(fuelKey);
+  }
+
+  function renderStockVariation(fuelKey){
+    const fuel = formState[fuelKey];
+    const c = calcFuel(fuel, fuelKey);
+    const el = $(fuelKey + 'Variation');
+    if(!c.hasTankData){
+      el.innerHTML = `Dip reading bharne par yahan tank vs nozzle ka sales variation dikhega.`;
+      return;
+    }
+    if(c.chartMissing){
+      el.innerHTML = `Is tank ka dip-chart abhi poora set nahi hai (kam se kam 2 points chahiye), isliye litres mein variation nahi nikal paa rahe. Upar "Chart Kholo" se chart bana lein.`;
+      return;
+    }
+    let vClass = 'match', vLabel = 'Match (koi farak nahi)';
+    if(c.stockVariation < -0.5){ vClass = 'short'; vLabel = 'Shortage (tank se zyada nikla)'; }
+    else if(c.stockVariation > 0.5){ vClass = 'surplus'; vLabel = 'Surplus (tank mein zyada bacha)'; }
+    el.innerHTML = `
+      Nozzle Sales: <b>${fmtL(c.totalLitres)} L</b> &nbsp;·&nbsp; Tank Consumption: <b>${fmtL(c.tankConsumption)} L</b><br>
+      Stock Variation: <span class="${vClass}">${c.stockVariation > 0 ? '+' : ''}${fmtL(c.stockVariation)} L — ${vLabel}</span>
+    `;
+  }
+
+  // ---------- Party rows ----------
+  function renderParties(){
+    const container = $('partyRows');
+    const currentDate = $('f_date').value;
+    container.innerHTML = formState.parties.map((pt, i) => `
+      <div class="party-row" data-idx="${i}">
+        <div class="party-row-head">
+          <input type="text" class="party-name" list="knownPartyNames" data-idx="${i}" value="${pt.name || ''}" placeholder="Party ka naam">
+          <button type="button" class="party-remove" data-idx="${i}">Hatao</button>
+        </div>
+        <div class="two-col">
+          <div class="field-row"><label>Naya Udhaar Diya ₹</label><input type="number" inputmode="decimal" class="party-input" data-field="given" data-idx="${i}" value="${pt.given}" placeholder="0"></div>
+          <div class="field-row"><label>Wapas Mila ₹</label><input type="number" inputmode="decimal" class="party-input" data-field="received" data-idx="${i}" value="${pt.received}" placeholder="0"></div>
+        </div>
+        <div class="field-row"><label>Register Mein Likha Closing ₹ (optional, check ke liye)</label><input type="number" inputmode="decimal" class="party-input" data-field="registerClosing" data-idx="${i}" value="${pt.registerClosing}" placeholder="Khaali chhod sakte hain"></div>
+        <div class="party-live" data-party-live="${i}"></div>
+      </div>
+    `).join('');
+    updatePartyLiveValues();
+  }
+
+  function updatePartyLiveValues(){
+    const currentDate = $('f_date').value;
+    formState.parties.forEach((pt, i) => {
+      const el = document.querySelector(`[data-party-live="${i}"]`);
+      if(!el) return;
+      if(!pt.name || !pt.name.trim()){
+        el.innerHTML = `<span style="color:var(--ink-dim)">Naam daalne par pichla balance yahan dikhega.</span>`;
+        return;
+      }
+      const opening = getPartyBalanceBefore(pt.name, currentDate);
+      const computedClosing = opening + num(pt.given) - num(pt.received);
+      let html = `Opening: <b>${fmtINR(opening)}</b> &nbsp;→&nbsp; Closing: <b>${fmtINR(computedClosing)}</b>`;
+      const registerClosingEl = document.querySelector(`.party-input[data-field="registerClosing"][data-idx="${i}"]`);
+      if(hasVal(pt.registerClosing)){
+        if(Math.abs(num(pt.registerClosing) - computedClosing) > 1){
+          html += `<br><span class="mismatch-warn">⚠ Register mein likha (${fmtINR(num(pt.registerClosing))}) hisab se match nahi karta</span>`;
+          if(registerClosingEl) registerClosingEl.classList.add('mismatch');
+        } else {
+          html += `<br><span class="match-ok">✓ Register se match karta hai</span>`;
+          if(registerClosingEl) registerClosingEl.classList.remove('mismatch');
+        }
+      } else if(registerClosingEl){
+        registerClosingEl.classList.remove('mismatch');
+      }
+      el.innerHTML = html;
+    });
+  }
+
+  // ---------- Employee/Salesman advance ----------
+  function renderEmployees(){
+    const container = $('employeeRows');
+    container.innerHTML = formState.employees.map((em, i) => `
+      <div class="employee-row" data-idx="${i}">
+        <div class="employee-row-head">
+          <input type="text" class="employee-name" list="knownEmployeeNames" data-idx="${i}" value="${em.name || ''}" placeholder="Employee/Salesman ka naam">
+          <button type="button" class="employee-remove" data-idx="${i}">Hatao</button>
+        </div>
+        <div class="two-col">
+          <div class="field-row"><label>Advance Diya ₹</label><input type="number" inputmode="decimal" class="employee-input" data-field="given" data-idx="${i}" value="${em.given}" placeholder="0"></div>
+          <div class="field-row"><label>Wapas/Salary Se Kata ₹</label><input type="number" inputmode="decimal" class="employee-input" data-field="received" data-idx="${i}" value="${em.received}" placeholder="0"></div>
+        </div>
+        <div class="employee-live" data-employee-live="${i}"></div>
+      </div>
+    `).join('');
+    updateEmployeeLiveValues();
+  }
+
+  function updateEmployeeLiveValues(){
+    const currentDate = $('f_date').value;
+    formState.employees.forEach((em, i) => {
+      const el = document.querySelector(`[data-employee-live="${i}"]`);
+      if(!el) return;
+      if(!em.name || !em.name.trim()){
+        el.innerHTML = `<span style="color:var(--ink-dim)">Naam daalne par pichla balance yahan dikhega.</span>`;
+        return;
+      }
+      const opening = getEmployeeBalanceBefore(em.name, currentDate);
+      const computedClosing = opening + num(em.given) - num(em.received);
+      el.innerHTML = `Opening: <b>${fmtINR(opening)}</b> &nbsp;→&nbsp; Closing: <b>${fmtINR(computedClosing)}</b>`;
+    });
+  }
+
+  // ---------- Digital payments (Phone Pe / ATM / A/c) ----------
+  function renderDigitalPayments(){
+    const container = $('digitalRows');
+    container.innerHTML = formState.digitalPayments.map((dp, i) => `
+      <div class="item-row" data-idx="${i}">
+        <input type="text" class="digital-input" list="knownDigitalModes" data-field="mode" data-idx="${i}" value="${dp.mode || ''}" placeholder="Mode (Phone Pe, ATM...)">
+        <input type="number" inputmode="decimal" class="digital-input" data-field="amount" data-idx="${i}" value="${dp.amount}" placeholder="₹">
+        <button type="button" class="digital-remove" data-idx="${i}">✕</button>
+      </div>
+    `).join('');
+    updateDigitalTotal();
+  }
+
+  function updateDigitalTotal(){
+    const total = formState.digitalPayments.reduce((sum, dp) => sum + num(dp.amount), 0);
+    let totalEl = document.getElementById('digitalTotalDisplay');
+    if(!totalEl){
+      totalEl = document.createElement('div');
+      totalEl.id = 'digitalTotalDisplay';
+      totalEl.className = 'item-total';
+      $('digitalRows').insertAdjacentElement('afterend', totalEl);
+    }
+    totalEl.innerHTML = total > 0 ? `Digital Payments Total: <b>${fmtINR(total)}</b>` : '';
+  }
+
+  // ---------- Itemized expenses ----------
+  function renderExpenses(){
+    const container = $('expenseRows');
+    container.innerHTML = formState.expenses.map((ex, i) => `
+      <div class="item-row" data-idx="${i}">
+        <input type="text" class="expense-input" data-field="item" data-idx="${i}" value="${ex.item || ''}" placeholder="Item (jaise paani wale)">
+        <input type="number" inputmode="decimal" class="expense-input" data-field="amount" data-idx="${i}" value="${ex.amount}" placeholder="₹">
+        <button type="button" class="expense-remove" data-idx="${i}">✕</button>
+      </div>
+    `).join('');
+    updateExpenseTotal();
+  }
+
+  function updateExpenseTotal(){
+    const total = formState.expenses.reduce((sum, ex) => sum + num(ex.amount), 0);
+    let totalEl = document.getElementById('expenseTotalDisplay');
+    if(!totalEl){
+      totalEl = document.createElement('div');
+      totalEl.id = 'expenseTotalDisplay';
+      totalEl.className = 'item-total';
+      $('expenseRows').insertAdjacentElement('afterend', totalEl);
+    }
+    totalEl.innerHTML = total > 0 ? `Kul Kharch: <b>${fmtINR(total)}</b>` : '';
+  }
+
+  // ---------- Self use (apna tanker/vehicle) ----------
+  function renderSelfUse(){
+    const container = $('selfUseRows');
+    container.innerHTML = formState.selfUse.map((su, i) => `
+      <div class="item-row" data-idx="${i}">
+        <input type="text" class="selfuse-input" data-field="item" data-idx="${i}" value="${su.item || ''}" placeholder="Item (jaise apna tanker)">
+        <input type="number" inputmode="decimal" class="selfuse-input" data-field="amount" data-idx="${i}" value="${su.amount}" placeholder="₹">
+        <button type="button" class="selfuse-remove" data-idx="${i}">✕</button>
+      </div>
+    `).join('');
+    updateSelfUseTotal();
+  }
+
+  function updateSelfUseTotal(){
+    const total = formState.selfUse.reduce((sum, su) => sum + num(su.amount), 0);
+    let totalEl = document.getElementById('selfUseTotalDisplay');
+    if(!totalEl){
+      totalEl = document.createElement('div');
+      totalEl.id = 'selfUseTotalDisplay';
+      totalEl.className = 'item-total';
+      $('selfUseRows').insertAdjacentElement('afterend', totalEl);
+    }
+    totalEl.innerHTML = total > 0 ? `Kul Self Use: <b>${fmtINR(total)}</b>` : '';
+  }
+
+  // ---------- Cash denomination count ----------
+  function renderCashDenominations(){
+    const container = $('cashDenomRows');
+    container.innerHTML = formState.cashDenominations.map((dn, i) => `
+      <div class="denom-row" data-idx="${i}">
+        <input type="number" inputmode="decimal" class="denom-input" data-field="note" data-idx="${i}" value="${dn.note}" placeholder="Note/Coin ₹ (jaise 500)">
+        <input type="number" inputmode="decimal" class="denom-input" data-field="count" data-idx="${i}" value="${dn.count}" placeholder="Ginti">
+        <button type="button" class="denom-remove" data-idx="${i}">✕</button>
+      </div>
+    `).join('');
+    updateCashDenomTotal();
+  }
+
+  function updateCashDenomTotal(){
+    let total = 0, hasData = false;
+    formState.cashDenominations.forEach(dn => {
+      if(hasVal(dn.note) || hasVal(dn.count)) hasData = true;
+      total += num(dn.note) * num(dn.count);
+    });
+    if(hasData){
+      $('f_cashActual').value = total;
+      $('f_cashActual').dataset.autoFromDenom = '1';
+    } else if($('f_cashActual').dataset.autoFromDenom === '1'){
+      $('f_cashActual').value = '';
+      delete $('f_cashActual').dataset.autoFromDenom;
+    }
+    let denomTotalEl = document.getElementById('denomTotalDisplay');
+    if(!denomTotalEl){
+      denomTotalEl = document.createElement('div');
+      denomTotalEl.id = 'denomTotalDisplay';
+      denomTotalEl.className = 'denom-total';
+      $('cashDenomRows').insertAdjacentElement('afterend', denomTotalEl);
+    }
+    denomTotalEl.innerHTML = hasData ? `Ginti se Total: <b>${fmtINR(total)}</b>` : '';
+  }
+
+  function updateLivePreview(){
+    const entry = collectFormEntry();
+    const c = calcEntry(entry);
+    const cashClass = c.computedCash < 0 ? 'neg' : 'pos';
+    let html = `
+      <div class="live-preview-title">Is Entry ka Live Hisab</div>
+      <div class="live-row"><span class="k">Petrol Sale</span><span class="v">${fmtINR(c.p.sale)}</span></div>
+      <div class="live-row"><span class="k">Diesel Sale</span><span class="v">${fmtINR(c.d.sale)}</span></div>
+      <div class="live-row"><span class="k">Kul Sale</span><span class="v">${fmtINR(c.totalSale)}</span></div>
+      <div class="live-row"><span class="k">Naya Udhaar (Diya)</span><span class="v">- ${fmtINR(c.totalGiven)}</span></div>
+      <div class="live-row"><span class="k">Udhaar Wapas (Mila)</span><span class="v">+ ${fmtINR(c.totalReceived)}</span></div>
+      <div class="live-row"><span class="k">Employee Advance (Diya)</span><span class="v">- ${fmtINR(c.totalEmployeeGiven)}</span></div>
+      <div class="live-row"><span class="k">Employee Advance (Wapas)</span><span class="v">+ ${fmtINR(c.totalEmployeeReceived)}</span></div>
+      <div class="live-row"><span class="k">Digital Payments</span><span class="v">- ${fmtINR(c.totalDigital)}</span></div>
+      <div class="live-row"><span class="k">Kharch</span><span class="v">- ${fmtINR(c.kharch)}</span></div>
+      <div class="live-row"><span class="k">Self Use</span><span class="v">- ${fmtINR(c.selfUseTotal)}</span></div>
+      <div class="live-row total"><span class="k">Net Cash (Hisab se)</span><span class="v ${cashClass}">${fmtINR(c.computedCash)}</span></div>
+    `;
+    if(c.hasMargin){
+      const pClass = c.netProfit < 0 ? 'neg' : 'pos';
+      html += `
+        <div class="live-preview-title" style="margin-top:14px;">Profit/Loss Kaise Aaya</div>
+      `;
+      if(c.p.hasCost){
+        html += `<div class="live-row"><span class="k">Petrol Margin (${fmtL(c.p.totalLitres)}L × Rs.${(num(entry.petrol.rate)-num(entry.petrol.cost)).toFixed(2)}/L)</span><span class="v">${fmtINR(c.p.margin)}</span></div>`;
+      }
+      if(c.d.hasCost){
+        html += `<div class="live-row"><span class="k">Diesel Margin (${fmtL(c.d.totalLitres)}L × Rs.${(num(entry.diesel.rate)-num(entry.diesel.cost)).toFixed(2)}/L)</span><span class="v">${fmtINR(c.d.margin)}</span></div>`;
+      }
+      html += `<div class="live-row"><span class="k">Total Margin</span><span class="v">${fmtINR(c.margin)}</span></div>`;
+      html += `<div class="live-row"><span class="k">Kharch</span><span class="v">- ${fmtINR(c.kharch)}</span></div>`;
+      html += `<div class="live-row"><span class="k">Self Use</span><span class="v">- ${fmtINR(c.selfUseTotal)}</span></div>`;
+      html += `<div class="live-row total"><span class="k">${c.netProfit < 0 ? 'Net Loss' : 'Net Profit'}</span><span class="v ${pClass}">${fmtINR(Math.abs(c.netProfit))}</span></div>`;
+    }
+    if(c.p.hasTankData){
+      html += `<div class="live-row"><span class="k">Petrol Stock Variation</span><span class="v">${c.p.stockVariation > 0 ? '+' : ''}${fmtL(c.p.stockVariation)} L</span></div>`;
+    }
+    if(c.d.hasTankData){
+      html += `<div class="live-row"><span class="k">Diesel Stock Variation</span><span class="v">${c.d.stockVariation > 0 ? '+' : ''}${fmtL(c.d.stockVariation)} L</span></div>`;
+    }
+    if(c.hasActualCash){
+      if(c.cashMismatch){
+        const diffClass = c.cashDiff < 0 ? 'neg' : 'pos';
+        html += `<div class="live-row"><span class="k mismatch-warn">⚠ Cash Mismatch</span><span class="v ${diffClass}">${c.cashDiff > 0 ? '+' : ''}${fmtINR(c.cashDiff)}</span></div>`;
+      } else {
+        html += `<div class="live-row"><span class="k match-ok">✓ Cash Ginti Match Karti Hai</span><span class="v"></span></div>`;
+      }
+    }
+    $('livePreview').innerHTML = html;
+  }
+
+  function collectFormEntry(){
+    return {
+      petrol: { rate: $('petrolRate').value, cost: $('petrolCost').value, nozzles: formState.petrol.nozzles.map(n => ({label:n.label, opening:n.opening, closing:n.closing, testing:n.testing})), tanks: formState.petrol.tanks.map(t => ({label:t.label, openingDipCm:t.openingDipCm, closingDipCm:t.closingDipCm, purchase:t.purchase})) },
+      diesel: { rate: $('dieselRate').value, cost: $('dieselCost').value, nozzles: formState.diesel.nozzles.map(n => ({label:n.label, opening:n.opening, closing:n.closing, testing:n.testing})), tanks: formState.diesel.tanks.map(t => ({label:t.label, openingDipCm:t.openingDipCm, closingDipCm:t.closingDipCm, purchase:t.purchase})) },
+      parties: formState.parties.map(p => ({name:p.name, given:p.given, received:p.received, registerClosing:p.registerClosing})),
+      employees: formState.employees.map(em => ({name:em.name, given:em.given, received:em.received})),
+      digitalPayments: formState.digitalPayments.map(dp => ({mode:dp.mode, amount:dp.amount})),
+      expenses: formState.expenses.map(ex => ({item:ex.item, amount:ex.amount})),
+      selfUse: formState.selfUse.map(su => ({item:su.item, amount:su.amount})),
+      cashDenominations: formState.cashDenominations.map(dn => ({note:dn.note, count:dn.count})),
+      cashActual: $('f_cashActual').value
+    };
+  }
+
+  // ---------- Form open/close ----------
+  function resetAiDraftUi(){
+    $('aiNote').style.display = 'none';
+    $('aiNote').innerHTML = '';
+    $('photoDraftStatus').textContent = '';
+    $('f_photoInput').value = '';
+    document.querySelectorAll('.ai-filled').forEach(el => el.classList.remove('ai-filled'));
+  }
+
+  function buildFreshFuelFromTemplate(prevFuel){
+    const nozzles = (prevFuel && prevFuel.nozzles && prevFuel.nozzles.length)
+      ? prevFuel.nozzles.map(n => ({ label: n.label || 'Nozzle', opening: n.closing || '', closing: '', testing: '' }))
+      : [{ label: 'Nozzle 1', opening: '', closing: '', testing: '' }];
+    const tanks = (prevFuel && prevFuel.tanks && prevFuel.tanks.length)
+      ? prevFuel.tanks.map(t => ({ label: t.label || 'Tank', openingDipCm: t.closingDipCm || '', closingDipCm: '', purchase: '' }))
+      : [{ label: 'Tank 1', openingDipCm: '', closingDipCm: '', purchase: '' }];
+    return {
+      rate: (prevFuel && prevFuel.rate) || '',
+      cost: (prevFuel && prevFuel.cost) || '',
+      nozzles: nozzles,
+      tanks: tanks
+    };
+  }
+
+  function openForm(date){
+    const panel = $('formPanel');
+    panel.classList.add('open');
+    resetAiDraftUi();
+    $('deleteBtn').classList.remove('confirming');
+    $('deleteBtn').textContent = 'Hatao';
+    showFormStatus('');
+
+    if(date && allEntries[date]){
+      editingDate = date;
+      const e = allEntries[date];
+      $('formTitle').textContent = 'Hisab Edit Karo';
+      $('f_date').value = date;
+      formState.petrol = {
+        rate: e.petrol && e.petrol.rate || '', cost: e.petrol && e.petrol.cost || '',
+        nozzles: (e.petrol && e.petrol.nozzles && e.petrol.nozzles.length) ? e.petrol.nozzles.map(n=>({label:n.label,opening:n.opening||'',closing:n.closing||'',testing:n.testing||''})) : [{label:'Nozzle 1',opening:'',closing:'',testing:''}],
+        tanks: (e.petrol && e.petrol.tanks && e.petrol.tanks.length) ? e.petrol.tanks.map(t=>({label:t.label,openingDipCm:t.openingDipCm||'',closingDipCm:t.closingDipCm||'',purchase:t.purchase||''})) : [{label:'Tank 1',openingDipCm:'',closingDipCm:'',purchase:''}]
+      };
+      formState.diesel = {
+        rate: e.diesel && e.diesel.rate || '', cost: e.diesel && e.diesel.cost || '',
+        nozzles: (e.diesel && e.diesel.nozzles && e.diesel.nozzles.length) ? e.diesel.nozzles.map(n=>({label:n.label,opening:n.opening||'',closing:n.closing||'',testing:n.testing||''})) : [{label:'Nozzle 1',opening:'',closing:'',testing:''}],
+        tanks: (e.diesel && e.diesel.tanks && e.diesel.tanks.length) ? e.diesel.tanks.map(t=>({label:t.label,openingDipCm:t.openingDipCm||'',closingDipCm:t.closingDipCm||'',purchase:t.purchase||''})) : [{label:'Tank 1',openingDipCm:'',closingDipCm:'',purchase:''}]
+      };
+      formState.parties = (e.parties || []).map(p => ({name:p.name||'', given:p.given||'', received:p.received||'', registerClosing:p.registerClosing||''}));
+      formState.employees = (e.employees || []).map(em => ({name:em.name||'', given:em.given||'', received:em.received||''}));
+      formState.cashDenominations = (e.cashDenominations || []).map(dn => ({note:dn.note||'', count:dn.count||''}));
+      formState.digitalPayments = (e.digitalPayments || []).map(dp => ({mode:dp.mode||'', amount:dp.amount||''}));
+      formState.expenses = (e.expenses && e.expenses.length) ? e.expenses.map(ex => ({item:ex.item||'', amount:ex.amount||''})) : (hasVal(e.kharch) ? [{item: e.kharchNote || 'Kharch', amount: e.kharch}] : []);
+      formState.selfUse = (e.selfUse || []).map(su => ({item:su.item||'', amount:su.amount||''}));
+      $('petrolRate').value = formState.petrol.rate;
+      $('petrolCost').value = formState.petrol.cost;
+      $('dieselRate').value = formState.diesel.rate;
+      $('dieselCost').value = formState.diesel.cost;
+      $('f_cashActual').value = e.cashActual || '';
+      delete $('f_cashActual').dataset.autoFromDenom;
+      $('deleteBtn').style.display = 'block';
+    } else {
+      editingDate = null;
+      $('formTitle').textContent = 'Aaj ka Hisab';
+      $('f_date').value = dateStr(new Date());
+      const latestDate = Object.keys(allEntries).sort().pop();
+      const template = latestDate ? allEntries[latestDate] : null;
+      formState.petrol = buildFreshFuelFromTemplate(template && template.petrol);
+      formState.diesel = buildFreshFuelFromTemplate(template && template.diesel);
+      formState.parties = [];
+      formState.employees = [];
+      formState.cashDenominations = [];
+      formState.digitalPayments = [];
+      formState.expenses = [];
+      formState.selfUse = [];
+      $('petrolRate').value = formState.petrol.rate; $('petrolCost').value = formState.petrol.cost;
+      $('dieselRate').value = formState.diesel.rate; $('dieselCost').value = formState.diesel.cost;
+      $('f_cashActual').value = '';
+      delete $('f_cashActual').dataset.autoFromDenom;
+      $('deleteBtn').style.display = 'none';
+      if(template){
+        setTimeout(() => showToast(latestDate + ' se opening readings, rate/cost carry ho gaye hain — check karke confirm karein.'), 150);
+      }
+    }
+    renderNozzles('petrol');
+    renderNozzles('diesel');
+    renderTanks('petrol');
+    renderTanks('diesel');
+    renderParties();
+    renderEmployees();
+    renderDigitalPayments();
+    renderExpenses();
+    renderSelfUse();
+    renderCashDenominations();
+    updateLivePreview();
+    panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+  }
+
+  function closeForm(){ $('formPanel').classList.remove('open'); editingDate = null; }
+
+  let toastTimer = null;
+  function showToast(msg, isErr){
+    const el = $('globalToast');
+    el.textContent = msg;
+    el.className = 'global-toast show' + (isErr ? ' err' : '');
+    if(toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.classList.remove('show'); }, 4500);
+  }
+
+  function showFormStatus(msg, isErr){
+    const el = $('formStatusMsg');
+    el.textContent = msg;
+    el.className = 'form-status-msg' + (isErr ? ' err' : '');
+  }
+
+  async function saveEntry(){
+    const date = $('f_date').value;
+    if(!date){ showFormStatus('Tareekh chunein', true); return; }
+    const data = collectFormEntry();
+    const saveBtn = $('saveBtn');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Save ho raha hai...';
+    try{
+      if(editingDate && editingDate !== date){
+        try{ await storage.delete('entry:' + editingDate); }catch(e){}
+        delete allEntries[editingDate];
+      }
+      const result = await storage.set('entry:' + date, JSON.stringify(data));
+      if(!result){ throw new Error('Save failed'); }
+      allEntries[date] = data;
+      const target = new Date(date + 'T00:00:00');
+      currentMonth = new Date(target.getFullYear(), target.getMonth(), 1);
+      closeForm();
+      renderAll();
+    }catch(e){
+      console.error(e);
+      showFormStatus('Save nahi ho paya, dobara try karein.', true);
+    }finally{
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save Karo';
+    }
+  }
+
+  async function deleteEntry(){
+    if(!editingDate) return;
+    const deleteBtn = $('deleteBtn');
+    if(!deleteBtn.classList.contains('confirming')){
+      deleteBtn.classList.add('confirming');
+      deleteBtn.textContent = 'Pakka Hatao? (Dobara Dabao)';
+      setTimeout(() => {
+        if(deleteBtn.classList.contains('confirming')){
+          deleteBtn.classList.remove('confirming');
+          deleteBtn.textContent = 'Hatao';
+        }
+      }, 4000);
+      return;
+    }
+    deleteBtn.classList.remove('confirming');
+    deleteBtn.textContent = 'Hatao raha hai...';
+    try{
+      await storage.delete('entry:' + editingDate);
+      delete allEntries[editingDate];
+      closeForm();
+      renderAll();
+    }catch(e){
+      console.error(e);
+      showFormStatus('Delete nahi ho paya, dobara try karein.', true);
+      deleteBtn.textContent = 'Hatao';
+    }
+  }
+
+  // ---------- Data backup (export/import) ----------
+  async function testCloudConnectivity(){
+    const statusEl = $('cloudTestStatus');
+    statusEl.textContent = 'Test ho raha hai...';
+    const results = [];
+    try{
+      const r1 = await fetch('https://jsonplaceholder.typicode.com/todos/1');
+      results.push('jsonplaceholder.typicode.com: ' + (r1.ok ? '✓ OK' : '✗ Failed (' + r1.status + ')'));
+    }catch(e){
+      results.push('jsonplaceholder.typicode.com: ✗ Failed to fetch');
+    }
+    try{
+      const r2 = await fetch('https://www.googleapis.com/discovery/v1/apis');
+      results.push('googleapis.com: ' + (r2.ok ? '✓ OK' : '✗ Failed (' + r2.status + ')'));
+    }catch(e){
+      results.push('googleapis.com: ✗ Failed to fetch');
+    }
+    try{
+      const r3 = await fetch('https://api.anthropic.com/v1/messages', { method: 'OPTIONS' });
+      results.push('api.anthropic.com: ✓ Reachable');
+    }catch(e){
+      results.push('api.anthropic.com: ✗ Failed to fetch');
+    }
+    statusEl.innerHTML = results.join('<br>');
+  }
+
+  async function exportBackup(){
+    const backup = {
+      exportedAt: new Date().toISOString(),
+      entries: allEntries,
+      dipCharts: dipCharts,
+      partyOpeningBalances: partyOpeningBalances,
+      employeeOpeningBalances: employeeOpeningBalances,
+      pumpName: $('pumpNameInput').value
+    };
+    const text = JSON.stringify(backup);
+    $('backupOutput').value = text;
+    $('backupOutput').focus();
+    $('backupOutput').select();
+    const statusEl = $('backupStatus');
+    try{
+      await navigator.clipboard.writeText(text);
+      statusEl.textContent = 'Copy ho gaya! Ab WhatsApp (khud ko) ya Notes mein paste karke save kar lo.';
+    }catch(err){
+      statusEl.textContent = 'Upar wale box mein text select ho gaya hai — ab manually copy karke WhatsApp/Notes mein paste kar do.';
+    }
+  }
+
+  async function importBackup(){
+    const statusEl = $('backupImportStatus');
+    const text = $('backupInput').value.trim();
+    if(!text){ statusEl.textContent = 'Pehle backup text paste karein.'; return; }
+    statusEl.textContent = 'Backup load ho raha hai...';
+    try{
+      const backup = JSON.parse(text);
+      if(!backup || typeof backup !== 'object' || !backup.entries){
+        throw new Error('Ye text sahi backup format mein nahi hai');
+      }
+      const entryDates = Object.keys(backup.entries);
+      for(const date of entryDates){
+        await storage.set('entry:' + date, JSON.stringify(backup.entries[date]));
+      }
+      const chartKeys = Object.keys(backup.dipCharts || {});
+      for(const key of chartKeys){
+        await storage.set('dipchart:' + key, JSON.stringify(backup.dipCharts[key]));
+      }
+      const openingKeys = Object.keys(backup.partyOpeningBalances || {});
+      for(const key of openingKeys){
+        await storage.set('partyopening:' + key, String(num(backup.partyOpeningBalances[key])));
+      }
+      const empOpeningKeys = Object.keys(backup.employeeOpeningBalances || {});
+      for(const key of empOpeningKeys){
+        await storage.set('employeeopening:' + key, String(num(backup.employeeOpeningBalances[key])));
+      }
+      if(hasVal(backup.pumpName)){
+        await storage.set('pumpName', backup.pumpName);
+        $('pumpNameInput').value = backup.pumpName;
+      }
+      await loadAllEntries();
+      await loadDipCharts();
+      await loadPartyOpeningBalances();
+      await loadEmployeeOpeningBalances();
+      renderAll();
+      statusEl.textContent = entryDates.length + ' din ka data aur ' + chartKeys.length + ' chart wapas load ho gaye.';
+    }catch(err){
+      console.error(err);
+      statusEl.textContent = 'Backup load nahi ho paya: ' + (err && err.message ? err.message : 'anjaan error');
+    }
+  }
+
+  // ---------- PDF generation ----------
+  function generateDailyPdf(date, data){
+    if(!date || !data){ showToast('Pehle is din ka hisab save karein, phir PDF banega.', true); return; }
+    if(typeof window.jspdf === 'undefined'){ showToast('PDF banane wala library load nahi ho payi. Internet check karein.', true); return; }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    const marginX = 40;
+    let y = 40;
+
+    const PETROL_RGB = [198, 138, 61];
+    const DIESEL_RGB = [63, 122, 93];
+    const DARK_RGB = [30, 40, 45];
+    const LIGHT_ROW_RGB = [247, 244, 237];
+
+    function sectionTitle(text, accentRgb){
+      doc.setFillColor(accentRgb ? accentRgb[0] : DARK_RGB[0], accentRgb ? accentRgb[1] : DARK_RGB[1], accentRgb ? accentRgb[2] : DARK_RGB[2]);
+      doc.rect(marginX, y, 4, 14, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.setTextColor(DARK_RGB[0], DARK_RGB[1], DARK_RGB[2]);
+      doc.text(text, marginX + 10, y + 11);
+      y += 22;
+    }
+
+    function table(head, body, opts){
+      const config = Object.assign({
+        body: body,
+        startY: y,
+        margin: { left: marginX, right: marginX },
+        theme: 'grid',
+        styles: { font: 'helvetica', fontSize: 9.5, cellPadding: 5, textColor: DARK_RGB },
+        headStyles: { fillColor: DARK_RGB, textColor: 255, fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: LIGHT_ROW_RGB }
+      }, opts || {});
+      if(head && head.length) config.head = [head];
+      doc.autoTable(config);
+      y = doc.lastAutoTable.finalY + 18;
+    }
+
+    const c = calcEntry(data);
+    const d = new Date(date + 'T00:00:00');
+    const dateLabel = d.getDate() + ' ' + HI_MONTHS[d.getMonth()] + ' ' + d.getFullYear() + ' (' + HI_WD[d.getDay()] + ')';
+    const pumpName = ($('pumpNameInput').value || '').trim();
+
+    // ---- Letterhead ----
+    doc.setFillColor(DARK_RGB[0], DARK_RGB[1], DARK_RGB[2]);
+    doc.rect(0, 0, pageW, 62, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    doc.text(pumpName || 'Pump Hisab', marginX, 30);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10.5);
+    doc.text('Daily Accounts Report', marginX, 46);
+    doc.setFontSize(11);
+    doc.text(dateLabel, pageW - marginX, 38, { align: 'right' });
+    doc.setTextColor(DARK_RGB[0], DARK_RGB[1], DARK_RGB[2]);
+    y = 84;
+
+    ['petrol','diesel'].forEach(fk => {
+      const fuel = data[fk] || {};
+      const fc = fk === 'petrol' ? c.p : c.d;
+      const accent = fk === 'petrol' ? PETROL_RGB : DIESEL_RGB;
+      const nozzles = (fuel.nozzles || []).filter(n => hasVal(n.opening) || hasVal(n.closing));
+      if(!nozzles.length && !fc.hasTankData) return;
+
+      sectionTitle((fk === 'petrol' ? 'Petrol' : 'Diesel') + '   |   Rate Rs.' + (fuel.rate || '0') + '/L' + (hasVal(fuel.cost) ? '   Cost Rs.' + fuel.cost + '/L' : ''), accent);
+
+      if(nozzles.length){
+        table(
+          ['Nozzle', 'Opening', 'Closing', 'Testing', 'Net Litre', 'Sale (Rs.)'],
+          nozzles.map(n => {
+            const o = num(n.opening), cl = num(n.closing), t = num(n.testing);
+            let net = cl - o - t; if(net < 0 || !isFinite(net)) net = 0;
+            return [n.label || 'Nozzle', fmtL(o), fmtL(cl), fmtL(t), fmtL(net), fmtL(net * num(fuel.rate))];
+          }),
+          { columnStyles: { 0: { fontStyle: 'bold' } } }
+        );
+      }
+      row2(doc, marginX, pageW, y - 10, 'Total Litres Sold: ' + fmtL(fc.totalLitres) + ' L', 'Sale Amount: ' + fmtRs(fc.sale));
+      y += 8;
+
+      if(fc.hasTankData){
+        table(
+          ['Tank', 'Opening Dip (cm)', 'Closing Dip (cm)', 'Purchase (L)'],
+          (fuel.tanks || []).map(t => [t.label || 'Tank', fmtL(num(t.openingDipCm)), fmtL(num(t.closingDipCm)), fmtL(num(t.purchase))])
+        );
+        if(!fc.chartMissing){
+          row2(doc, marginX, pageW, y - 10, 'Tank Consumption: ' + fmtL(fc.tankConsumption) + ' L', 'Stock Variation: ' + (fc.stockVariation > 0 ? '+' : '') + fmtL(fc.stockVariation) + ' L');
+          y += 8;
+        }
+      }
+      y += 4;
+    });
+
+    if((data.parties || []).some(pt => pt.name || hasVal(pt.given) || hasVal(pt.received))){
+      sectionTitle('Creditors (Udhaar)');
+      table(
+        ['Party', 'Diya (Rs.)', 'Wapas (Rs.)', 'Opening (Rs.)', 'Closing (Rs.)'],
+        data.parties.filter(pt => pt.name || hasVal(pt.given) || hasVal(pt.received)).map(pt => {
+          const opening = getPartyBalanceBefore(pt.name, date);
+          const closing = opening + num(pt.given) - num(pt.received);
+          return [pt.name || '(bina naam)', fmtL(num(pt.given)), fmtL(num(pt.received)), fmtL(opening), fmtL(closing)];
+        })
+      );
+    }
+
+    if((data.employees || []).some(em => em.name || hasVal(em.given) || hasVal(em.received))){
+      sectionTitle('Employee/Salesman Advance');
+      table(
+        ['Employee', 'Advance Diya (Rs.)', 'Wapas/Kata (Rs.)', 'Opening (Rs.)', 'Closing (Rs.)'],
+        data.employees.filter(em => em.name || hasVal(em.given) || hasVal(em.received)).map(em => {
+          const opening = getEmployeeBalanceBefore(em.name, date);
+          const closing = opening + num(em.given) - num(em.received);
+          return [em.name || '(bina naam)', fmtL(num(em.given)), fmtL(num(em.received)), fmtL(opening), fmtL(closing)];
+        })
+      );
+    }
+
+    if((data.digitalPayments || []).some(dp => dp.mode || hasVal(dp.amount))){
+      sectionTitle('Digital Payments');
+      table(
+        ['Mode', 'Amount (Rs.)'],
+        data.digitalPayments.filter(dp => dp.mode || hasVal(dp.amount)).map(dp => [dp.mode || '(mode)', fmtL(num(dp.amount))])
+      );
+    }
+
+    if((data.expenses || []).some(ex => ex.item || hasVal(ex.amount))){
+      sectionTitle('Kharch (Expenses)');
+      table(
+        ['Item', 'Amount (Rs.)'],
+        data.expenses.filter(ex => ex.item || hasVal(ex.amount)).map(ex => [ex.item || '(item)', fmtL(num(ex.amount))])
+      );
+    }
+
+    if((data.selfUse || []).some(su => su.item || hasVal(su.amount))){
+      sectionTitle('Self Use');
+      table(
+        ['Item', 'Amount (Rs.)'],
+        data.selfUse.filter(su => su.item || hasVal(su.amount)).map(su => [su.item || '(item)', fmtL(num(su.amount))])
+      );
+    }
+
+    if(c.hasDenomData){
+      sectionTitle('Cash Ginti (Note/Coin Count)');
+      table(
+        ['Note/Coin (Rs.)', 'Ginti', 'Subtotal (Rs.)'],
+        data.cashDenominations.filter(dn => hasVal(dn.note) || hasVal(dn.count)).map(dn => [num(dn.note), num(dn.count), fmtL(num(dn.note) * num(dn.count))])
+      );
+    }
+
+    // ---- Final summary box ----
+    if(y + 130 > doc.internal.pageSize.getHeight() - 40){ doc.addPage(); y = 40; }
+    sectionTitle('Final Summary', DARK_RGB);
+    const summaryRows = [
+      ['Total Sale', fmtRs(c.totalSale)],
+      ['Udhaar (Net: Wapas - Diya)', fmtRs(c.totalReceived - c.totalGiven)],
+      ['Employee Advance (Net: Wapas - Diya)', fmtRs(c.totalEmployeeReceived - c.totalEmployeeGiven)],
+      ['Digital Payments', '- ' + fmtRs(c.totalDigital)],
+      ['Kharch', '- ' + fmtRs(c.kharch)],
+      ['Self Use', '- ' + fmtRs(c.selfUseTotal)],
+      ['Net Cash (Hisab se)', fmtRs(c.computedCash)]
+    ];
+    if(c.hasActualCash){
+      summaryRows.push(['Actual Cash (Ginti/Manual)', fmtRs(c.actualCash)]);
+      summaryRows.push(['Farak', c.cashMismatch ? ((c.cashDiff > 0 ? '+' : '') + fmtRs(c.cashDiff)) : 'Match (0)']);
+    }
+    table([], summaryRows, {
+      theme: 'plain',
+      styles: { fontSize: 11, cellPadding: 6 },
+      columnStyles: { 0: { fontStyle: 'bold' }, 1: { halign: 'right' } },
+      didParseCell: function(hookData){
+        const label = hookData.row.raw[0];
+        if(label === 'Net Cash (Hisab se)'){
+          hookData.cell.styles.fontStyle = 'bold';
+          hookData.cell.styles.fontSize = 12.5;
+        }
+      }
+    });
+
+    if(c.hasMargin){
+      if(y + 110 > doc.internal.pageSize.getHeight() - 40){ doc.addPage(); y = 40; }
+      sectionTitle('Profit / Loss Calculation', DARK_RGB);
+      const plRows = [];
+      if(c.p.hasCost){
+        const pMarginRate = num(data.petrol.rate) - num(data.petrol.cost);
+        plRows.push(['Petrol Margin (' + fmtL(c.p.totalLitres) + 'L x Rs.' + pMarginRate.toFixed(2) + '/L)', fmtRs(c.p.margin)]);
+      }
+      if(c.d.hasCost){
+        const dMarginRate = num(data.diesel.rate) - num(data.diesel.cost);
+        plRows.push(['Diesel Margin (' + fmtL(c.d.totalLitres) + 'L x Rs.' + dMarginRate.toFixed(2) + '/L)', fmtRs(c.d.margin)]);
+      }
+      plRows.push(['Total Margin', fmtRs(c.margin)]);
+      plRows.push(['Kharch', '- ' + fmtRs(c.kharch)]);
+      plRows.push(['Self Use', '- ' + fmtRs(c.selfUseTotal)]);
+      plRows.push([c.netProfit < 0 ? 'Net Loss' : 'Net Profit', fmtRs(Math.abs(c.netProfit))]);
+      table([], plRows, {
+        theme: 'plain',
+        styles: { fontSize: 11, cellPadding: 6 },
+        columnStyles: { 0: { fontStyle: 'bold' }, 1: { halign: 'right' } },
+        didParseCell: function(hookData){
+          const label = hookData.row.raw[0];
+          if(label === 'Net Profit' || label === 'Net Loss'){
+            hookData.cell.styles.fontStyle = 'bold';
+            hookData.cell.styles.fontSize = 12.5;
+          }
+        }
+      });
+    }
+
+    // ---- All Creditors - Current Closing Balance (as of this date) ----
+    const allBalances = getAllPartyBalances();
+    const balanceNames = Object.keys(allBalances).filter(n => Math.abs(allBalances[n]) > 0.5).sort((a,b) => allBalances[b] - allBalances[a]);
+    if(balanceNames.length){
+      if(y + 60 > doc.internal.pageSize.getHeight() - 40){ doc.addPage(); y = 40; }
+      sectionTitle('All Creditors - Current Closing Balance');
+      table(
+        ['Party', 'Closing Balance (Rs.)'],
+        balanceNames.map(n => [n, fmtL(allBalances[n])])
+      );
+    }
+
+    // ---- All Employees - Current Closing Balance ----
+    const allEmpBalances = getAllEmployeeBalances();
+    const empBalanceNames = Object.keys(allEmpBalances).filter(n => Math.abs(allEmpBalances[n]) > 0.5).sort((a,b) => allEmpBalances[b] - allEmpBalances[a]);
+    if(empBalanceNames.length){
+      if(y + 60 > doc.internal.pageSize.getHeight() - 40){ doc.addPage(); y = 40; }
+      sectionTitle('All Employees - Current Advance Balance');
+      table(
+        ['Employee', 'Advance Balance (Rs.)'],
+        empBalanceNames.map(n => [n, fmtL(allEmpBalances[n])])
+      );
+    }
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text('Generated by Pump Hisab app', marginX, doc.internal.pageSize.getHeight() - 20);
+
+    const fileName = 'pump-hisab-' + date + '.pdf';
+    try{
+      const blobUrl = doc.output('bloburl');
+      const win = window.open(blobUrl, '_blank');
+      if(!win){ throw new Error('popup blocked'); }
+      showToast('PDF naye tab mein khul gaya.');
+    }catch(err){
+      try{
+        doc.save(fileName);
+        showToast('PDF download ho raha hai.');
+      }catch(err2){
+        showToast('PDF nahi ban paya. Thumbs-down se Anthropic ko batayein.', true);
+      }
+    }
+  }
+
+  function row2(doc, marginX, pageW, y, leftText, rightText){
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(30, 40, 45);
+    doc.text(leftText, marginX, y);
+    doc.text(rightText, pageW - marginX, y, { align: 'right' });
+  }
+
+  // ---------- Party / Employee ledger statement (date-wise, all-time) ----------
+  function generatePartyLedgerPdf(name, kind){
+    if(!name) return;
+    if(typeof window.jspdf === 'undefined'){ showToast('PDF banane wala library load nahi ho payi. Internet check karein.', true); return; }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    const marginX = 40;
+    let y = 40;
+
+    const DARK_RGB = [30, 40, 45];
+    const ACCENT_RGB = kind === 'employee' ? [74, 127, 165] : [124, 111, 168];
+    const LIGHT_ROW_RGB = [247, 244, 237];
+
+    function sectionTitle(text, accentRgb){
+      doc.setFillColor(accentRgb ? accentRgb[0] : DARK_RGB[0], accentRgb ? accentRgb[1] : DARK_RGB[1], accentRgb ? accentRgb[2] : DARK_RGB[2]);
+      doc.rect(marginX, y, 4, 14, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.setTextColor(DARK_RGB[0], DARK_RGB[1], DARK_RGB[2]);
+      doc.text(text, marginX + 10, y + 11);
+      y += 22;
+    }
+
+    function table(head, body, opts){
+      const config = Object.assign({
+        body: body,
+        startY: y,
+        margin: { left: marginX, right: marginX },
+        theme: 'grid',
+        styles: { font: 'helvetica', fontSize: 9.5, cellPadding: 5, textColor: DARK_RGB },
+        headStyles: { fillColor: DARK_RGB, textColor: 255, fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: LIGHT_ROW_RGB }
+      }, opts || {});
+      if(head && head.length) config.head = [head];
+      doc.autoTable(config);
+      y = doc.lastAutoTable.finalY + 18;
+    }
+
+    const pumpName = ($('pumpNameInput').value || '').trim();
+    const key = name.trim().toLowerCase();
+    const isEmployee = kind === 'employee';
+    const openingBalance = (isEmployee ? employeeOpeningBalances[key] : partyOpeningBalances[key]) || 0;
+
+    const dates = Object.keys(allEntries).sort();
+    let running = openingBalance;
+    const rows = [];
+    dates.forEach(d => {
+      const list = isEmployee ? (allEntries[d].employees || []) : (allEntries[d].parties || []);
+      list.forEach(item => {
+        if((item.name || '').trim().toLowerCase() !== key) return;
+        const given = num(item.given), received = num(item.received);
+        if(given === 0 && received === 0) return;
+        running += given - received;
+        const dt = new Date(d + 'T00:00:00');
+        const dLabel = dt.getDate() + ' ' + HI_MONTHS[dt.getMonth()] + ' ' + dt.getFullYear();
+        rows.push([dLabel, given ? fmtL(given) : '-', received ? fmtL(received) : '-', fmtL(running)]);
+      });
+    });
+
+    // Letterhead
+    doc.setFillColor(DARK_RGB[0], DARK_RGB[1], DARK_RGB[2]);
+    doc.rect(0, 0, pageW, 62, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    doc.text(pumpName || 'Pump Hisab', marginX, 30);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10.5);
+    doc.text((isEmployee ? 'Employee Advance' : 'Creditor') + ' Ledger Statement', marginX, 46);
+    doc.setTextColor(DARK_RGB[0], DARK_RGB[1], DARK_RGB[2]);
+    y = 84;
+
+    sectionTitle(name, ACCENT_RGB);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10.5);
+    doc.text('Opening Balance: Rs.' + fmtL(openingBalance), marginX, y);
+    y += 18;
+
+    if(rows.length === 0){
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10.5);
+      doc.text('Is naam ki abhi tak koi daily transaction record nahi hai.', marginX, y);
+      y += 20;
+    } else {
+      table(
+        ['Date', isEmployee ? 'Advance Diya (Rs.)' : 'Diya (Rs.)', isEmployee ? 'Wapas/Kata (Rs.)' : 'Wapas (Rs.)', 'Balance (Rs.)'],
+        rows,
+        { columnStyles: { 0: { fontStyle: 'bold' } } }
+      );
+    }
+
+    if(y + 40 > doc.internal.pageSize.getHeight() - 40){ doc.addPage(); y = 40; }
+    doc.setFillColor(245, 240, 230);
+    doc.rect(marginX, y, pageW - marginX * 2, 34, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(DARK_RGB[0], DARK_RGB[1], DARK_RGB[2]);
+    doc.text('Current Closing Balance: Rs.' + fmtL(running), marginX + 10, y + 22);
+    y += 50;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text('Generated by Pump Hisab app', marginX, doc.internal.pageSize.getHeight() - 20);
+
+    const safeFileName = name.trim().replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+    const fileName = 'ledger-' + safeFileName + '.pdf';
+    try{
+      const blobUrl = doc.output('bloburl');
+      const win = window.open(blobUrl, '_blank');
+      if(!win){ throw new Error('popup blocked'); }
+      showToast('Ledger PDF naye tab mein khul gaya.');
+    }catch(err){
+      try{
+        doc.save(fileName);
+        showToast('Ledger PDF download ho raha hai.');
+      }catch(err2){
+        showToast('PDF nahi ban paya. Thumbs-down se Anthropic ko batayein.', true);
+      }
+    }
+  }
+
+  // ---------- Photo -> AI draft ----------
+  const EXTRACT_PROMPT = `Yeh photo ek Hindi/Hinglish mein haath se likhe hue petrol pump ke daily accounts register ki hai. Isme har fuel (petrol/diesel) ke alag-alag nozzle meter readings (opening totalizer, closing totalizer, agar box mein number likha hai jaise [1],[2],[3] to wahi nozzle ka label hai), testing/calibration ka ghata hua amount, retail sale rate, tank ka dip reading (opening dip, closing dip — yeh cm mein hoti hai, litres mein nahi), din mein aayi purchase/tanker receipt (litres mein), alag-alag kharch item (jaise paani wale, dhaba — har ek apni amount ke saath), digital payments (Phone Pe, Google Pay, ATM/Card, bank A/c transfer se aaya paisa), alag-alag customer ka credit-udhaar (fuel/goods ka udhaar — naya udhaar diya, wapas mila, aur agar likha ho to us party ka closing balance), pump ke apne staff/employee/salesman ko diya gaya salary advance (alag se, customer credit se), aur neeche cash ginti/note-count ka hisaab (jaise 500×123, 200×24 — yani kis note/coin ke kitne piece hain) hota hai.
+
+Photo ko dhyan se padho aur neeche diye JSON schema mein data bharo:
+- Har fuel ke jitne nozzle register mein dikh rahe hain, unki opening, closing, testing reading aur agar dikhe to unka box-number label alag array mein do.
+- Agar register mein tank ka dip reading likha hai, use "petrolTanks"/"dieselTanks" array mein daalo — openingDipCm aur closingDipCm mein wahi cm wali raw dip value daalo jaisi register mein likhi hai (litres mein convert MAT karo, hum wo alag se karte hain). purchase field mein sirf agar litres mein tanker se aaya fuel likha ho to daalo. Agar ek se zyada tank hain to har tank ka alag object banao.
+- Har customer jiska fuel/goods ka udhaar ka naam ya hisab dikh raha hai (jaise koi grahak jisne credit par petrol/diesel liya), use "parties" array mein daalo: naam, naya udhaar diya gaya amount, wapas mila amount, aur agar register mein us party ka closing/balance figure likha ho to registerClosing mein daalo.
+- Agar register mein pump ke apne staff/employee/salesman ka salary advance likha hai (jaise "commission sardar", naam ke saath "shesh"/balance jo salary se katega), use "employees" array mein daalo: naam, advance diya gaya amount, wapas/salary se kata gaya amount. Ye customer credit se bilkul alag hai — parties array mein mat daalo.
+- Agar register mein neeche cash note/coin ginti likhi hai (jaise "500×123", "200×24" — note ki value × kitni ginti), use "cashDenominations" array mein daalo: note mein note/coin ki value (jaise 500, 200, 100, 50), count mein kitni ginti hai.
+- Har kharch item ko "expenses" array mein alag-alag daalo — item mein us kharch ka naam (jaise "paani wale", "dhaba"), amount mein uski value. Ek lump total mat banao, jitne bhi alag-alag kharch dikh rahe hain sabko alag object mein do.
+- Agar Phone Pe, Google Pay, ATM/Card ya bank A/c transfer se koi payment mila hai, use "digitalPayments" array mein daalo: mode mein tarika (jaise "Phone Pe", "ATM/Card"), amount mein kitna paisa mila.
+- Jo field register mein confidently nahi mil rahi, use khaali string "" rakho — kabhi andaza mat lagao ya number bana kar mat do.
+- Agar handwriting ya numbers spasht nahi hain, to confidence_note mein saaf-saaf likho ki kaunsi values doubtful hain.
+
+Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na extra text:
+
+{"date":"","petrolRate":"","petrolCost":"","petrolNozzles":[{"label":"","opening":"","closing":"","testing":""}],"petrolTanks":[{"label":"","openingDipCm":"","closingDipCm":"","purchase":""}],"dieselRate":"","dieselCost":"","dieselNozzles":[{"label":"","opening":"","closing":"","testing":""}],"dieselTanks":[{"label":"","openingDipCm":"","closingDipCm":"","purchase":""}],"parties":[{"name":"","given":"","received":"","registerClosing":""}],"employees":[{"name":"","given":"","received":""}],"cashDenominations":[{"note":"","count":""}],"expenses":[{"item":"","amount":""}],"digitalPayments":[{"mode":"","amount":""}],"confidence_note":""}`;
+
+  function readFileAsDataUrl(file){
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error('File read failed'));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function normalizeImageToJpegBase64(file){
+    return new Promise(async (resolve) => {
+      try{
+        const dataUrl = await readFileAsDataUrl(file);
+        const img = new Image();
+        img.onload = () => {
+          try{
+            const maxDim = 1800;
+            let w = img.naturalWidth, h = img.naturalHeight;
+            if(w > maxDim || h > maxDim){
+              if(w > h){ h = Math.round(h * (maxDim / w)); w = maxDim; } else { w = Math.round(w * (maxDim / h)); h = maxDim; }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            resolve({ base64: jpegDataUrl.split(',')[1], mediaType: 'image/jpeg' });
+          }catch(e){
+            resolve({ base64: dataUrl.split(',')[1], mediaType: file.type || 'image/jpeg' });
+          }
+        };
+        img.onerror = () => resolve({ base64: dataUrl.split(',')[1], mediaType: file.type || 'image/jpeg' });
+        img.src = dataUrl;
+      }catch(e){ resolve(null); }
+    });
+  }
+
+  async function callClaudeVision(base64Data, mediaType){
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1500,
+        messages: [{ role: "user", content: [
+          { type: "image", source: { type: "base64", media_type: mediaType, data: base64Data } },
+          { type: "text", text: EXTRACT_PROMPT }
+        ]}]
+      })
+    });
+    if(!response.ok){
+      let detail = '';
+      try{ const errBody = await response.json(); detail = (errBody && errBody.error && errBody.error.message) || ''; }catch(e){}
+      throw new Error('API error ' + response.status + (detail ? (': ' + detail) : ''));
+    }
+    const data = await response.json();
+    const textBlock = (data.content || []).find(b => b.type === 'text');
+    if(!textBlock){ throw new Error('Response mein text nahi mila'); }
+    const raw = textBlock.text;
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    if(start === -1 || end === -1){ throw new Error('JSON nahi mila response mein'); }
+    return JSON.parse(raw.slice(start, end + 1));
+  }
+
+  function sanitizeNumber(v){ if(v === undefined || v === null) return ''; return String(v).replace(/[^0-9.\-]/g, ''); }
+
+  function tryParseDate(str){
+    if(!str) return null;
+    str = String(str).trim();
+    let m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if(m){ return str; }
+    m = str.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})$/);
+    if(m){ let d=m[1], mo=m[2], y=m[3]; if(y.length===2) y='20'+y; return y+'-'+mo.padStart(2,'0')+'-'+d.padStart(2,'0'); }
+    return null;
+  }
+
+  function sanitizeNozzleArray(arr, fuelKey){
+    if(!Array.isArray(arr) || arr.length === 0) return null;
+    const cleaned = arr.map((n, i) => ({
+      label: (n && n.label && String(n.label).trim()) || ('Nozzle ' + (i+1)),
+      opening: sanitizeNumber(n && n.opening), closing: sanitizeNumber(n && n.closing), testing: sanitizeNumber(n && n.testing)
+    })).filter(n => n.opening !== '' || n.closing !== '' || n.testing !== '');
+    return cleaned.length ? cleaned : null;
+  }
+
+  function sanitizeTankArray(arr){
+    if(!Array.isArray(arr) || arr.length === 0) return null;
+    const cleaned = arr.map((t, i) => ({
+      label: (t && t.label && String(t.label).trim()) || ('Tank ' + (i+1)),
+      openingDipCm: sanitizeNumber(t && t.openingDipCm), closingDipCm: sanitizeNumber(t && t.closingDipCm), purchase: sanitizeNumber(t && t.purchase)
+    })).filter(t => t.openingDipCm !== '' || t.closingDipCm !== '' || t.purchase !== '');
+    return cleaned.length ? cleaned : null;
+  }
+
+  function sanitizePartiesArray(arr){
+    if(!Array.isArray(arr)) return null;
+    const cleaned = arr.map(p => ({
+      name: (p && p.name && String(p.name).trim()) || '',
+      given: sanitizeNumber(p && p.given), received: sanitizeNumber(p && p.received), registerClosing: sanitizeNumber(p && p.registerClosing)
+    })).filter(p => p.name || p.given !== '' || p.received !== '' || p.registerClosing !== '');
+    return cleaned.length ? cleaned : null;
+  }
+
+  function sanitizeEmployeesArray(arr){
+    if(!Array.isArray(arr)) return null;
+    const cleaned = arr.map(em => ({
+      name: (em && em.name && String(em.name).trim()) || '',
+      given: sanitizeNumber(em && em.given), received: sanitizeNumber(em && em.received)
+    })).filter(em => em.name || em.given !== '' || em.received !== '');
+    return cleaned.length ? cleaned : null;
+  }
+
+  function sanitizeDenominationsArray(arr){
+    if(!Array.isArray(arr)) return null;
+    const cleaned = arr.map(dn => ({
+      note: sanitizeNumber(dn && dn.note), count: sanitizeNumber(dn && dn.count)
+    })).filter(dn => dn.note !== '' || dn.count !== '');
+    return cleaned.length ? cleaned : null;
+  }
+
+  function sanitizeExpensesArray(arr){
+    if(!Array.isArray(arr)) return null;
+    const cleaned = arr.map(ex => ({
+      item: (ex && ex.item && String(ex.item).trim()) || '', amount: sanitizeNumber(ex && ex.amount)
+    })).filter(ex => ex.item || ex.amount !== '');
+    return cleaned.length ? cleaned : null;
+  }
+
+  function sanitizeDigitalPaymentsArray(arr){
+    if(!Array.isArray(arr)) return null;
+    const cleaned = arr.map(dp => ({
+      mode: (dp && dp.mode && String(dp.mode).trim()) || '', amount: sanitizeNumber(dp && dp.amount)
+    })).filter(dp => dp.mode || dp.amount !== '');
+    return cleaned.length ? cleaned : null;
+  }
+
+  async function handlePhotoUpload(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const statusEl = $('photoDraftStatus');
+    statusEl.textContent = 'Photo padhi ja rahi hai, thoda ruko...';
+    try{
+      const normalized = await normalizeImageToJpegBase64(file);
+      if(!normalized){ throw new Error('Photo process nahi ho paayi'); }
+      const result = await callClaudeVision(normalized.base64, normalized.mediaType);
+
+      const parsedDate = tryParseDate(result.date);
+      if(parsedDate) $('f_date').value = parsedDate;
+
+      const pNozzles = sanitizeNozzleArray(result.petrolNozzles, 'petrol');
+      if(pNozzles) formState.petrol.nozzles = pNozzles;
+      const dNozzles = sanitizeNozzleArray(result.dieselNozzles, 'diesel');
+      if(dNozzles) formState.diesel.nozzles = dNozzles;
+      const pTanks = sanitizeTankArray(result.petrolTanks);
+      if(pTanks) formState.petrol.tanks = pTanks;
+      const dTanks = sanitizeTankArray(result.dieselTanks);
+      if(dTanks) formState.diesel.tanks = dTanks;
+      const parties = sanitizePartiesArray(result.parties);
+      if(parties) formState.parties = parties;
+      const employees = sanitizeEmployeesArray(result.employees);
+      if(employees) formState.employees = employees;
+      const denoms = sanitizeDenominationsArray(result.cashDenominations);
+      if(denoms){ formState.cashDenominations = denoms; }
+      const expenses = sanitizeExpensesArray(result.expenses);
+      if(expenses){ formState.expenses = expenses; }
+      const digitalPayments = sanitizeDigitalPaymentsArray(result.digitalPayments);
+      if(digitalPayments){ formState.digitalPayments = digitalPayments; }
+
+      const petrolRate = sanitizeNumber(result.petrolRate), petrolCost = sanitizeNumber(result.petrolCost);
+      const dieselRate = sanitizeNumber(result.dieselRate), dieselCost = sanitizeNumber(result.dieselCost);
+      if(petrolRate){ $('petrolRate').value = petrolRate; $('petrolRate').classList.add('ai-filled'); formState.petrol.rate = petrolRate; }
+      if(petrolCost){ $('petrolCost').value = petrolCost; $('petrolCost').classList.add('ai-filled'); formState.petrol.cost = petrolCost; }
+      if(dieselRate){ $('dieselRate').value = dieselRate; $('dieselRate').classList.add('ai-filled'); formState.diesel.rate = dieselRate; }
+      if(dieselCost){ $('dieselCost').value = dieselCost; $('dieselCost').classList.add('ai-filled'); formState.diesel.cost = dieselCost; }
+
+      renderNozzles('petrol');
+      renderNozzles('diesel');
+      renderTanks('petrol');
+      renderTanks('diesel');
+      renderParties();
+      renderEmployees();
+      renderDigitalPayments();
+      renderExpenses();
+      renderCashDenominations();
+      document.querySelectorAll('.nozzle-row, .tank-row, .party-row, .employee-row, .denom-row, .item-row').forEach(r => r.classList.add('ai-filled'));
+      if(denoms) $('f_cashActual').classList.add('ai-filled');
+      updateLivePreview();
+
+      const noteEl = $('aiNote');
+      noteEl.style.display = 'block';
+      noteEl.innerHTML = '<b>AI Draft taiyar hai — save karne se pehle register se zaroor milaan karein.</b>' + (result.confidence_note ? ('<br>' + result.confidence_note) : '');
+      statusEl.textContent = 'Draft bhar diya gaya. Amber wali fields check kar lein.';
+    }catch(err){
+      console.error(err);
+      statusEl.textContent = 'Photo padhne mein dikkat hui: ' + (err && err.message ? err.message : 'anjaan error') + '. Values khud bhar dein.';
+    }
+  }
+
+  // ---------- Event wiring ----------
+  document.addEventListener('input', (e) => {
+    if(e.target.classList.contains('noz-input')){
+      const fuel = e.target.dataset.fuel, idx = parseInt(e.target.dataset.idx, 10), field = e.target.dataset.field;
+      formState[fuel].nozzles[idx][field] = e.target.value;
+      e.target.closest('.nozzle-row').classList.remove('ai-filled');
+      updateNozzleLiveValues(fuel);
+      updateLivePreview();
+    }
+    if(e.target.classList.contains('noz-label')){
+      const fuel = e.target.dataset.fuel, idx = parseInt(e.target.dataset.idx, 10);
+      formState[fuel].nozzles[idx].label = e.target.value;
+      e.target.closest('.nozzle-row').classList.remove('ai-filled');
+      updateNozzleLiveValues(fuel);
+    }
+    if(e.target.classList.contains('tank-input')){
+      const fuel = e.target.dataset.fuel, idx = parseInt(e.target.dataset.idx, 10), field = e.target.dataset.field;
+      formState[fuel].tanks[idx][field] = e.target.value;
+      e.target.closest('.tank-row').classList.remove('ai-filled');
+      updateTankLiveValues(fuel);
+      updateLivePreview();
+    }
+    if(e.target.classList.contains('tank-label')){
+      const fuel = e.target.dataset.fuel, idx = parseInt(e.target.dataset.idx, 10);
+      formState[fuel].tanks[idx].label = e.target.value;
+      e.target.closest('.tank-row').classList.remove('ai-filled');
+      updateTankLiveValues(fuel);
+    }
+    if(e.target.classList.contains('dip-point-cm') || e.target.classList.contains('dip-point-litres')){
+      const fuel = e.target.dataset.fuel, idx = parseInt(e.target.dataset.idx, 10), pi = parseInt(e.target.dataset.pi, 10);
+      const key = fuel + '-' + idx;
+      const field = e.target.classList.contains('dip-point-cm') ? 'cm' : 'litres';
+      if(chartEditorState[key] && chartEditorState[key][pi]) chartEditorState[key][pi][field] = e.target.value;
+    }
+    if(e.target.classList.contains('party-input')){
+      const idx = parseInt(e.target.dataset.idx, 10), field = e.target.dataset.field;
+      formState.parties[idx][field] = e.target.value;
+      e.target.closest('.party-row').classList.remove('ai-filled');
+      updatePartyLiveValues();
+      updateLivePreview();
+    }
+    if(e.target.classList.contains('party-name')){
+      const idx = parseInt(e.target.dataset.idx, 10);
+      formState.parties[idx].name = e.target.value;
+      e.target.closest('.party-row').classList.remove('ai-filled');
+      updatePartyLiveValues();
+    }
+    if(e.target.classList.contains('employee-input')){
+      const idx = parseInt(e.target.dataset.idx, 10), field = e.target.dataset.field;
+      formState.employees[idx][field] = e.target.value;
+      updateEmployeeLiveValues();
+      updateLivePreview();
+    }
+    if(e.target.classList.contains('employee-name')){
+      const idx = parseInt(e.target.dataset.idx, 10);
+      formState.employees[idx].name = e.target.value;
+      updateEmployeeLiveValues();
+    }
+    if(e.target.classList.contains('denom-input')){
+      const idx = parseInt(e.target.dataset.idx, 10), field = e.target.dataset.field;
+      formState.cashDenominations[idx][field] = e.target.value;
+      updateCashDenomTotal();
+      updateLivePreview();
+    }
+    if(e.target.classList.contains('digital-input')){
+      const idx = parseInt(e.target.dataset.idx, 10), field = e.target.dataset.field;
+      formState.digitalPayments[idx][field] = e.target.value;
+      e.target.closest('.item-row').classList.remove('ai-filled');
+      updateDigitalTotal();
+      updateLivePreview();
+    }
+    if(e.target.classList.contains('expense-input')){
+      const idx = parseInt(e.target.dataset.idx, 10), field = e.target.dataset.field;
+      formState.expenses[idx][field] = e.target.value;
+      e.target.closest('.item-row').classList.remove('ai-filled');
+      updateExpenseTotal();
+      updateLivePreview();
+    }
+    if(e.target.classList.contains('selfuse-input')){
+      const idx = parseInt(e.target.dataset.idx, 10), field = e.target.dataset.field;
+      formState.selfUse[idx][field] = e.target.value;
+      e.target.closest('.item-row').classList.remove('ai-filled');
+      updateSelfUseTotal();
+      updateLivePreview();
+    }
+    if(e.target.id === 'f_cashActual'){
+      delete e.target.dataset.autoFromDenom;
+      updateLivePreview();
+    }
+    if(e.target.id === 'f_date'){
+      updateNozzleLiveValues('petrol');
+      updateNozzleLiveValues('diesel');
+      updateTankLiveValues('petrol');
+      updateTankLiveValues('diesel');
+      updatePartyLiveValues();
+    }
+  });
+
+  ['petrolRate','petrolCost','dieselRate','dieselCost','f_cashActual'].forEach(id => {
+    $(id).addEventListener('input', () => {
+      $(id).classList.remove('ai-filled');
+      if(id === 'petrolRate'){ formState.petrol.rate = $(id).value; updateNozzleLiveValues('petrol'); }
+      if(id === 'petrolCost'){ formState.petrol.cost = $(id).value; }
+      if(id === 'dieselRate'){ formState.diesel.rate = $(id).value; updateNozzleLiveValues('diesel'); }
+      if(id === 'dieselCost'){ formState.diesel.cost = $(id).value; }
+      updateLivePreview();
+    });
+  });
+
+  document.addEventListener('click', (e) => {
+    if(e.target.classList.contains('add-nozzle-btn')){
+      const fuel = e.target.dataset.fuel;
+      formState[fuel].nozzles.push({label:'Nozzle ' + (formState[fuel].nozzles.length+1), opening:'',closing:'',testing:''});
+      renderNozzles(fuel);
+      updateLivePreview();
+    }
+    if(e.target.classList.contains('nozzle-remove')){
+      const fuel = e.target.dataset.fuel, idx = parseInt(e.target.dataset.idx, 10);
+      formState[fuel].nozzles.splice(idx, 1);
+      renderNozzles(fuel);
+      updateLivePreview();
+    }
+    if(e.target.classList.contains('add-tank-btn')){
+      const fuel = e.target.dataset.fuel;
+      formState[fuel].tanks.push({label:'Tank ' + (formState[fuel].tanks.length+1), openingDipCm:'',closingDipCm:'',purchase:''});
+      renderTanks(fuel);
+      updateLivePreview();
+    }
+    if(e.target.classList.contains('tank-remove')){
+      const fuel = e.target.dataset.fuel, idx = parseInt(e.target.dataset.idx, 10);
+      formState[fuel].tanks.splice(idx, 1);
+      renderTanks(fuel);
+      updateLivePreview();
+    }
+    if(e.target.classList.contains('dip-chart-toggle')){
+      const fuel = e.target.dataset.fuel, idx = parseInt(e.target.dataset.idx, 10);
+      toggleDipChartEditor(fuel, idx);
+    }
+    if(e.target.classList.contains('add-dip-point-btn')){
+      const fuel = e.target.dataset.fuel, idx = parseInt(e.target.dataset.idx, 10);
+      const key = fuel + '-' + idx;
+      chartEditorState[key].push({cm:'', litres:''});
+      renderDipChartEditor(fuel, idx, chartEditorState[key]);
+    }
+    if(e.target.classList.contains('dip-point-remove')){
+      const fuel = e.target.dataset.fuel, idx = parseInt(e.target.dataset.idx, 10), pi = parseInt(e.target.dataset.pi, 10);
+      const key = fuel + '-' + idx;
+      chartEditorState[key].splice(pi, 1);
+      renderDipChartEditor(fuel, idx, chartEditorState[key]);
+    }
+    if(e.target.classList.contains('show-all-points-btn')){
+      const fuel = e.target.dataset.fuel, idx = parseInt(e.target.dataset.idx, 10);
+      const key = fuel + '-' + idx;
+      chartEditorMode[key] = 'full';
+      renderDipChartEditor(fuel, idx, chartEditorState[key]);
+    }
+    if(e.target.classList.contains('dip-preset-btn')){
+      const fuel = e.target.dataset.fuel, idx = parseInt(e.target.dataset.idx, 10);
+      const key = fuel + '-' + idx;
+      const preset = e.target.dataset.preset === '15kl' ? PRESET_15KL : PRESET_20KL;
+      const points = preset.map(p => ({cm: p.cm, litres: p.litres}));
+      chartEditorState[key] = points;
+      chartEditorMode[key] = 'compact';
+      renderDipChartEditor(fuel, idx, points);
+      const statusEl = document.querySelector(`[data-import-status="${key}"]`);
+      if(statusEl) statusEl.textContent = (e.target.dataset.preset === '15kl' ? '15KL' : '20KL') + ' BPCL chart load ho gaya (' + points.length + ' points). Check karke "Chart Save Karo" dabao.';
+    }
+    if(e.target.classList.contains('save-chart-btn')){
+      const fuel = e.target.dataset.fuel, idx = parseInt(e.target.dataset.idx, 10);
+      const key = fuel + '-' + idx;
+      const label = formState[fuel].tanks[idx].label;
+      const statusEl = document.querySelector(`[data-chart-status="${fuel}-${idx}"]`);
+      if(statusEl) statusEl.textContent = 'Save ho raha hai...';
+      saveDipChart(fuel, label, chartEditorState[key]).then(() => {
+        if(statusEl) statusEl.textContent = 'Chart save ho gaya ✓';
+        renderTanks(fuel);
+        updateLivePreview();
+      }).catch(() => {
+        if(statusEl) statusEl.textContent = 'Save nahi ho paya, dobara try karein.';
+      });
+    }
+    if(e.target.id === 'addPartyBtn'){
+      formState.parties.push({name:'', given:'', received:'', registerClosing:''});
+      renderParties();
+      updateLivePreview();
+    }
+    if(e.target.classList.contains('party-remove')){
+      const idx = parseInt(e.target.dataset.idx, 10);
+      formState.parties.splice(idx, 1);
+      renderParties();
+      updateLivePreview();
+    }
+    if(e.target.id === 'addEmployeeBtn'){
+      formState.employees.push({name:'', given:'', received:''});
+      renderEmployees();
+      updateLivePreview();
+    }
+    if(e.target.classList.contains('employee-remove')){
+      const idx = parseInt(e.target.dataset.idx, 10);
+      formState.employees.splice(idx, 1);
+      renderEmployees();
+      updateLivePreview();
+    }
+    if(e.target.id === 'addDigitalBtn'){
+      formState.digitalPayments.push({mode:'', amount:''});
+      renderDigitalPayments();
+      updateLivePreview();
+    }
+    if(e.target.classList.contains('digital-remove')){
+      const idx = parseInt(e.target.dataset.idx, 10);
+      formState.digitalPayments.splice(idx, 1);
+      renderDigitalPayments();
+      updateLivePreview();
+    }
+    if(e.target.id === 'addExpenseBtn'){
+      formState.expenses.push({item:'', amount:''});
+      renderExpenses();
+      updateLivePreview();
+    }
+    if(e.target.classList.contains('expense-remove')){
+      const idx = parseInt(e.target.dataset.idx, 10);
+      formState.expenses.splice(idx, 1);
+      renderExpenses();
+      updateLivePreview();
+    }
+    if(e.target.id === 'addSelfUseBtn'){
+      formState.selfUse.push({item:'', amount:''});
+      renderSelfUse();
+      updateLivePreview();
+    }
+    if(e.target.classList.contains('selfuse-remove')){
+      const idx = parseInt(e.target.dataset.idx, 10);
+      formState.selfUse.splice(idx, 1);
+      renderSelfUse();
+      updateLivePreview();
+    }
+    if(e.target.id === 'addDenomBtn'){
+      formState.cashDenominations.push({note:'', count:''});
+      renderCashDenominations();
+      updateLivePreview();
+    }
+    if(e.target.classList.contains('denom-remove')){
+      const idx = parseInt(e.target.dataset.idx, 10);
+      formState.cashDenominations.splice(idx, 1);
+      renderCashDenominations();
+      updateLivePreview();
+    }
+    if(e.target.classList.contains('party-opening-edit-btn')){
+      partyOpeningEditKey = e.target.dataset.name.trim().toLowerCase();
+      renderPartyBalances();
+    }
+    if(e.target.id === 'setNewOpeningBtn'){
+      partyOpeningEditKey = '__new__';
+      renderPartyBalances();
+    }
+    if(e.target.classList.contains('party-opening-save-btn')){
+      if(e.target.id === 'saveNewPartyBtn'){
+        saveNewPartyOpeningInline();
+      } else {
+        saveOpeningBalanceInline(e.target.dataset.name);
+      }
+    }
+    if(e.target.classList.contains('party-opening-cancel-btn')){
+      partyOpeningEditKey = null;
+      renderPartyBalances();
+    }
+    if(e.target.classList.contains('employee-opening-edit-btn')){
+      employeeOpeningEditKey = e.target.dataset.name.trim().toLowerCase();
+      renderEmployeeBalances();
+    }
+    if(e.target.id === 'setNewEmployeeOpeningBtn'){
+      employeeOpeningEditKey = '__new__';
+      renderEmployeeBalances();
+    }
+    if(e.target.classList.contains('employee-opening-save-btn')){
+      if(e.target.id === 'saveNewEmployeeBtn'){
+        saveNewEmployeeOpeningInline();
+      } else {
+        saveEmployeeOpeningBalanceInline(e.target.dataset.name);
+      }
+    }
+    if(e.target.classList.contains('employee-opening-cancel-btn')){
+      employeeOpeningEditKey = null;
+      renderEmployeeBalances();
+    }
+    if(e.target.classList.contains('ledger-pdf-btn')){
+      generatePartyLedgerPdf(e.target.dataset.name, e.target.dataset.kind);
+    }
+  });
+
+  $('toggleFormBtn').addEventListener('click', () => {
+    if($('formPanel').classList.contains('open') && !editingDate){ closeForm(); } else { openForm(null); }
+  });
+  $('cancelBtn').addEventListener('click', closeForm);
+  $('saveBtn').addEventListener('click', saveEntry);
+  $('deleteBtn').addEventListener('click', deleteEntry);
+  $('pdfBtn').addEventListener('click', () => {
+    const date = $('f_date').value;
+    generateDailyPdf(date, collectFormEntry());
+  });
+  $('f_photoInput').addEventListener('change', handlePhotoUpload);
+  document.addEventListener('change', (e) => {
+    if(e.target.classList.contains('dip-import-file')) handleDipImportFile(e);
+    if(e.target.classList.contains('dip-import-photo')) handleDipImportPhoto(e);
+  });
+  $('prevMonth').addEventListener('click', () => { currentMonth.setMonth(currentMonth.getMonth()-1); renderAll(); });
+  $('nextMonth').addEventListener('click', () => { currentMonth.setMonth(currentMonth.getMonth()+1); renderAll(); });
+  $('cloudTestBtn').addEventListener('click', testCloudConnectivity);
+  $('exportBtn').addEventListener('click', exportBackup);
+  $('importBtn').addEventListener('click', importBackup);
+  $('clearBackupOutputBtn').addEventListener('click', () => {
+    $('backupOutput').value = '';
+    $('backupStatus').textContent = '';
+  });
+  $('clearBackupInputBtn').addEventListener('click', () => {
+    $('backupInput').value = '';
+    $('backupImportStatus').textContent = '';
+  });
+  $('pumpNameInput').addEventListener('input', async () => {
+    try{ await storage.set('pumpName', $('pumpNameInput').value); }catch(e){}
+  });
+
+  (async function init(){
+    await loadAllEntries();
+    await loadDipCharts();
+    await loadPartyOpeningBalances();
+    await loadEmployeeOpeningBalances();
+    try{
+      const pn = await storage.get('pumpName');
+      if(pn && pn.value) $('pumpNameInput').value = pn.value;
+    }catch(e){}
+    renderAll();
+  })();
+})();
+</script>
+
+</body>
+</html>
