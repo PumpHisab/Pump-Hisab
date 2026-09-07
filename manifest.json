@@ -1,0 +1,23 @@
+{
+  "name": "Pump Hisab",
+  "short_name": "Pump Hisab",
+  "start_url": "./pump-hisab.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#132229",
+  "theme_color": "#132229",
+  "icons": [
+    {
+      "src": "pump-hisab-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "pump-hisab-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
