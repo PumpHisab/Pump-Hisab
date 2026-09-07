@@ -332,6 +332,25 @@
 
   .party-balances{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-m); overflow: hidden; margin-top: 8px; }
   .backup-box{ background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 14px; margin-top: 8px; }
+  .pl-mode-toggle{ display:flex; gap: 8px; margin-bottom: 12px; }
+  .pl-mode-btn{
+    flex:1; padding: 9px; border-radius: var(--radius-s); border: 1px solid var(--line); background: transparent;
+    color: var(--ink-dim); font-family: var(--font-body); font-weight: 600; font-size: 13px; cursor: pointer;
+  }
+  .pl-mode-btn.active{ background: var(--petrol); color: #1B140A; border-color: var(--petrol); }
+  .pl-summary-grid{ display:grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .pl-stat{ background: var(--bg-deep); border: 1px solid var(--line); border-radius: var(--radius-s); padding: 10px 12px; }
+  .pl-stat .label{ font-size: 11px; color: var(--ink-dim); margin-bottom: 4px; }
+  .pl-stat .value{ font-family: var(--font-display); font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .pl-stat.profit .value{ color: #8FBF9F; }
+  .pl-stat.loss .value{ color: var(--loss); }
+  .pl-month-table{ width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .pl-month-table th, .pl-month-table td{ padding: 8px 6px; text-align: right; border-bottom: 1px solid var(--line); }
+  .pl-month-table th:first-child, .pl-month-table td:first-child{ text-align: left; }
+  .pl-month-table th{ color: var(--ink-dim); font-weight: 600; font-size: 11px; }
+  .pl-month-table td.loss{ color: var(--loss); }
+  .pl-month-table td.profit{ color: #8FBF9F; }
+  .pl-no-margin-note{ font-size: 11.5px; color: var(--ink-dim); margin-top: 8px; }
   .backup-hint{ font-size: 12px; color: var(--ink-dim); line-height: 1.5; margin-bottom: 12px; }
   .backup-btn{
     display:block; width: 100%; padding: 12px; border-radius: var(--radius-s); border: 1px solid var(--petrol-dim);
@@ -542,6 +561,21 @@
 
   <div class="list-heading">Is Mahine ki Entries</div>
   <div id="listArea"><div class="status-msg">Load ho raha hai...</div></div>
+
+  <div class="list-heading" style="margin-top:22px;">Profit / Loss Report</div>
+  <div class="backup-box">
+    <div class="pl-mode-toggle">
+      <button type="button" class="pl-mode-btn active" data-mode="monthly" id="plMonthlyBtn">Monthly</button>
+      <button type="button" class="pl-mode-btn" data-mode="yearly" id="plYearlyBtn">Yearly</button>
+    </div>
+    <div class="month-nav" id="plYearNav" style="display:none;">
+      <button id="plPrevYear" aria-label="Pichla saal">&#8249;</button>
+      <div class="month-label" id="plYearLabel">—</div>
+      <button id="plNextYear" aria-label="Agla saal">&#8250;</button>
+    </div>
+    <div id="plReportArea"></div>
+    <button type="button" class="btn-pdf" id="plPdfBtn" style="margin-top:14px;">📄 PDF Banao</button>
+  </div>
 
   <div class="list-heading" style="margin-top:22px;">Party Balances (Sabhi Time)</div>
   <div id="partyBalanceArea"></div>
@@ -773,20 +807,25 @@
       totalReceivedAccount += partyReceivedTotal(pt) - partyReceivedCashOnly(pt);
     });
     const employees = e.employees || [];
-    let totalEmployeeGiven = 0, totalEmployeeReceived = 0;
-    employees.forEach(em => { totalEmployeeGiven += num(em.given); totalEmployeeReceived += num(em.received); });
-    const computedCash = totalSale - totalGiven + totalReceivedCash - totalEmployeeGiven + totalEmployeeReceived - totalDigital - kharch - selfUseTotal;
+    let totalEmployeeGiven = 0, totalEmployeeReceived = 0, totalEmployeeReceivedCash = 0, totalEmployeeReceivedDeduction = 0;
+    employees.forEach(em => {
+      totalEmployeeGiven += num(em.given);
+      totalEmployeeReceived += employeeReceivedTotal(em);
+      totalEmployeeReceivedCash += employeeReceivedCashOnly(em);
+      totalEmployeeReceivedDeduction += employeeReceivedTotal(em) - employeeReceivedCashOnly(em);
+    });
+    const computedCash = totalSale - totalGiven + totalReceivedCash - totalEmployeeGiven + totalEmployeeReceivedCash - totalDigital - kharch - selfUseTotal;
     const hasActualCash = hasVal(e.cashActual);
     const actualCash = hasActualCash ? num(e.cashActual) : null;
     const hasMargin = p.hasCost || d.hasCost;
     const margin = p.margin + d.margin;
-    const netProfit = hasMargin ? (margin - kharch - selfUseTotal) : null;
+    const netProfit = hasMargin ? (margin - kharch) : null;
     const denoms = e.cashDenominations || [];
     let denomTotal = 0, hasDenomData = false;
     denoms.forEach(dn => { if(hasVal(dn.note) || hasVal(dn.count)) hasDenomData = true; denomTotal += num(dn.note) * num(dn.count); });
     const cashMismatch = hasActualCash ? Math.abs(computedCash - actualCash) > 2 : false;
     const cashDiff = hasActualCash ? (actualCash - computedCash) : null;
-    return { p, d, totalSale, kharch, selfUseTotal, totalDigital, totalGiven, totalReceived, totalReceivedCash, totalReceivedAccount, totalEmployeeGiven, totalEmployeeReceived, computedCash, hasActualCash, actualCash, hasMargin, margin, netProfit, denomTotal, hasDenomData, cashMismatch, cashDiff };
+    return { p, d, totalSale, kharch, selfUseTotal, totalDigital, totalGiven, totalReceived, totalReceivedCash, totalReceivedAccount, totalEmployeeGiven, totalEmployeeReceived, totalEmployeeReceivedCash, totalEmployeeReceivedDeduction, computedCash, hasActualCash, actualCash, hasMargin, margin, netProfit, denomTotal, hasDenomData, cashMismatch, cashDiff };
   }
 
   // ---------- Historical lookups for auto-verification ----------
@@ -927,7 +966,7 @@
     dates.forEach(d => {
       (allEntries[d].employees || []).forEach(em => {
         if((em.name || '').trim().toLowerCase() === key){
-          balance += num(em.given) - num(em.received);
+          balance += num(em.given) - employeeReceivedTotal(em);
         }
       });
     });
@@ -946,7 +985,7 @@
         if(!rawName) return;
         const key = rawName.toLowerCase();
         displayNames[key] = rawName;
-        balances[key] = (balances[key] || 0) + num(em.given) - num(em.received);
+        balances[key] = (balances[key] || 0) + num(em.given) - employeeReceivedTotal(em);
       });
     });
     const finalBalances = {};
@@ -973,6 +1012,98 @@
       .filter(d => d.startsWith(mk))
       .sort((a,b) => b.localeCompare(a))
       .map(d => ({date:d, data:allEntries[d]}));
+  }
+
+  function entriesForYearMonth(year, month){
+    const mk = year + '-' + String(month + 1).padStart(2, '0');
+    return Object.keys(allEntries)
+      .filter(d => d.startsWith(mk))
+      .sort()
+      .map(d => ({date:d, data:allEntries[d]}));
+  }
+
+  function entriesForYear(year){
+    const prefix = String(year);
+    return Object.keys(allEntries)
+      .filter(d => d.startsWith(prefix))
+      .sort()
+      .map(d => ({date:d, data:allEntries[d]}));
+  }
+
+  function aggregatePL(entriesList){
+    let totalSale = 0, totalKharch = 0, totalSelfUse = 0, totalMarginP = 0, totalMarginD = 0, anyMargin = false, totalCash = 0, totalGiven = 0, totalReceived = 0;
+    entriesList.forEach(({data}) => {
+      const c = calcEntry(data);
+      totalSale += c.totalSale;
+      totalKharch += c.kharch;
+      totalSelfUse += c.selfUseTotal;
+      totalGiven += c.totalGiven;
+      totalReceived += c.totalReceived;
+      if(c.p.hasCost){ totalMarginP += c.p.margin; anyMargin = true; }
+      if(c.d.hasCost){ totalMarginD += c.d.margin; anyMargin = true; }
+      totalCash += (c.hasActualCash ? c.actualCash : c.computedCash);
+    });
+    const totalMargin = totalMarginP + totalMarginD;
+    const netProfit = anyMargin ? (totalMargin - totalKharch) : null;
+    return { count: entriesList.length, totalSale, totalKharch, totalSelfUse, totalMarginP, totalMarginD, totalMargin, netProfit, anyMargin, totalCash, totalGiven, totalReceived };
+  }
+
+  let plMode = 'monthly';
+  let plYear = new Date().getFullYear();
+
+  function renderPLReport(){
+    if(plMode === 'monthly'){
+      $('plYearNav').style.display = 'none';
+      const entries = entriesForCurrentMonth();
+      const t = aggregatePL(entries);
+      renderPLSummary(t, HI_MONTHS[currentMonth.getMonth()] + ' ' + currentMonth.getFullYear(), null);
+    } else {
+      $('plYearNav').style.display = 'flex';
+      $('plYearLabel').textContent = String(plYear);
+      const entries = entriesForYear(plYear);
+      const t = aggregatePL(entries);
+      const monthRows = [];
+      for(let m = 0; m < 12; m++){
+        const me = entriesForYearMonth(plYear, m);
+        if(me.length === 0) continue;
+        monthRows.push({ label: HI_MONTHS[m], t: aggregatePL(me) });
+      }
+      renderPLSummary(t, String(plYear), monthRows);
+    }
+  }
+
+  function renderPLSummary(t, periodLabel, monthRows){
+    let html = `
+      <div class="pl-summary-grid">
+        <div class="pl-stat"><div class="label">Total Sale</div><div class="value">${fmtINR(t.totalSale)}</div></div>
+        <div class="pl-stat"><div class="label">Total Kharch</div><div class="value">${fmtINR(t.totalKharch)}</div></div>
+        <div class="pl-stat"><div class="label">Total Self Use</div><div class="value">${fmtINR(t.totalSelfUse)}</div></div>
+        <div class="pl-stat"><div class="label">Net Cash Collected</div><div class="value">${fmtINR(t.totalCash)}</div></div>
+    `;
+    if(t.anyMargin){
+      const cls = t.netProfit < 0 ? 'loss' : 'profit';
+      html += `
+        <div class="pl-stat"><div class="label">Total Margin (Petrol+Diesel)</div><div class="value">${fmtINR(t.totalMargin)}</div></div>
+        <div class="pl-stat ${cls}"><div class="label">${t.netProfit < 0 ? 'Net Loss' : 'Net Profit'}</div><div class="value">${fmtINR(Math.abs(t.netProfit))}</div></div>
+      `;
+    }
+    html += `</div>`;
+    if(!t.anyMargin){
+      html += `<div class="pl-no-margin-note">Cost Rate kisi entry mein nahi bhara gaya, isliye Profit/Loss nahi nikal paya — sirf sale/kharch/cash dikh rahe hain.</div>`;
+    }
+    if(monthRows && monthRows.length){
+      html += `<table class="pl-month-table"><thead><tr><th>Mahina</th><th>Sale</th><th>Kharch</th><th>Net P/L</th></tr></thead><tbody>`;
+      monthRows.forEach(row => {
+        const mt = row.t;
+        const cellCls = mt.anyMargin ? (mt.netProfit < 0 ? 'loss' : 'profit') : '';
+        const plText = mt.anyMargin ? ((mt.netProfit < 0 ? '-' : '') + fmtINR(Math.abs(mt.netProfit))) : '—';
+        html += `<tr><td>${row.label}</td><td>${fmtINR(mt.totalSale)}</td><td>${fmtINR(mt.totalKharch)}</td><td class="${cellCls}">${plText}</td></tr>`;
+      });
+      html += `</tbody></table>`;
+    } else if(monthRows){
+      html += `<div class="pl-no-margin-note">Is saal koi entry nahi mili.</div>`;
+    }
+    $('plReportArea').innerHTML = html;
   }
 
   function entryHasFlag(date, data){
@@ -1202,6 +1333,7 @@
     renderMonthLabel();
     renderSummary();
     renderList();
+    renderPLReport();
     renderPartyBalances();
     renderEmployeeBalances();
     $('knownPartyNames').innerHTML = getKnownPartyNames().map(n => `<option value="${n}">`).join('');
@@ -1681,14 +1813,28 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
           <input type="text" class="employee-name" list="knownEmployeeNames" data-idx="${i}" value="${em.name || ''}" placeholder="Employee/Salesman ka naam">
           <button type="button" class="employee-remove" data-idx="${i}">Hatao</button>
         </div>
+        <div class="field-row"><label>Advance Diya ₹</label><input type="number" inputmode="decimal" class="employee-input" data-field="given" data-idx="${i}" value="${em.given}" placeholder="0"></div>
         <div class="two-col">
-          <div class="field-row"><label>Advance Diya ₹</label><input type="number" inputmode="decimal" class="employee-input" data-field="given" data-idx="${i}" value="${em.given}" placeholder="0"></div>
-          <div class="field-row"><label>Wapas/Salary Se Kata ₹</label><input type="number" inputmode="decimal" class="employee-input" data-field="received" data-idx="${i}" value="${em.received}" placeholder="0"></div>
+          <div class="field-row"><label>Wapas Cash Mein ₹</label><input type="number" inputmode="decimal" class="employee-input" data-field="receivedCash" data-idx="${i}" value="${em.receivedCash}" placeholder="0"></div>
+          <div class="field-row"><label>Salary Se Kata ₹ (non-cash)</label><input type="number" inputmode="decimal" class="employee-input" data-field="receivedDeduction" data-idx="${i}" value="${em.receivedDeduction}" placeholder="0"></div>
         </div>
         <div class="employee-live" data-employee-live="${i}"></div>
       </div>
     `).join('');
     updateEmployeeLiveValues();
+  }
+
+  function employeeReceivedTotal(em){
+    if(hasVal(em.receivedCash) || hasVal(em.receivedDeduction)){
+      return num(em.receivedCash) + num(em.receivedDeduction);
+    }
+    return num(em.received);
+  }
+  function employeeReceivedCashOnly(em){
+    if(hasVal(em.receivedCash) || hasVal(em.receivedDeduction)){
+      return num(em.receivedCash);
+    }
+    return 0; // legacy 'received' pre-fix was really salary-deduction, not cash
   }
 
   function updateEmployeeLiveValues(){
@@ -1701,7 +1847,7 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
         return;
       }
       const opening = getEmployeeBalanceBefore(em.name, currentDate);
-      const computedClosing = opening + num(em.given) - num(em.received);
+      const computedClosing = opening + num(em.given) - employeeReceivedTotal(em);
       el.innerHTML = `Opening: <b>${fmtINR(opening)}</b> &nbsp;→&nbsp; Closing: <b>${fmtINR(computedClosing)}</b>`;
     });
   }
@@ -1830,7 +1976,8 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
       <div class="live-row"><span class="k">Udhaar Wapas - Cash Mein</span><span class="v">+ ${fmtINR(c.totalReceivedCash)}</span></div>
       <div class="live-row"><span class="k">Udhaar Wapas - A/c Mein</span><span class="v">${fmtINR(c.totalReceivedAccount)} (cash mein nahi juda)</span></div>
       <div class="live-row"><span class="k">Employee Advance (Diya)</span><span class="v">- ${fmtINR(c.totalEmployeeGiven)}</span></div>
-      <div class="live-row"><span class="k">Employee Advance (Wapas)</span><span class="v">+ ${fmtINR(c.totalEmployeeReceived)}</span></div>
+      <div class="live-row"><span class="k">Employee Advance Wapas - Cash Mein</span><span class="v">+ ${fmtINR(c.totalEmployeeReceivedCash)}</span></div>
+      <div class="live-row"><span class="k">Employee Advance - Salary Se Kata</span><span class="v">${fmtINR(c.totalEmployeeReceivedDeduction)} (cash mein nahi juda)</span></div>
       <div class="live-row"><span class="k">Digital Payments</span><span class="v">- ${fmtINR(c.totalDigital)}</span></div>
       <div class="live-row"><span class="k">Kharch</span><span class="v">- ${fmtINR(c.kharch)}</span></div>
       <div class="live-row"><span class="k">Self Use</span><span class="v">- ${fmtINR(c.selfUseTotal)}</span></div>
@@ -1849,7 +1996,6 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
       }
       html += `<div class="live-row"><span class="k">Total Margin</span><span class="v">${fmtINR(c.margin)}</span></div>`;
       html += `<div class="live-row"><span class="k">Kharch</span><span class="v">- ${fmtINR(c.kharch)}</span></div>`;
-      html += `<div class="live-row"><span class="k">Self Use</span><span class="v">- ${fmtINR(c.selfUseTotal)}</span></div>`;
       html += `<div class="live-row total"><span class="k">${c.netProfit < 0 ? 'Net Loss' : 'Net Profit'}</span><span class="v ${pClass}">${fmtINR(Math.abs(c.netProfit))}</span></div>`;
     }
     if(c.p.hasTankData){
@@ -1874,7 +2020,7 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
       petrol: { rate: $('petrolRate').value, cost: $('petrolCost').value, nozzles: formState.petrol.nozzles.map(n => ({label:n.label, opening:n.opening, closing:n.closing, testing:n.testing})), tanks: formState.petrol.tanks.map(t => ({label:t.label, openingDipCm:t.openingDipCm, closingDipCm:t.closingDipCm, purchase:t.purchase})) },
       diesel: { rate: $('dieselRate').value, cost: $('dieselCost').value, nozzles: formState.diesel.nozzles.map(n => ({label:n.label, opening:n.opening, closing:n.closing, testing:n.testing})), tanks: formState.diesel.tanks.map(t => ({label:t.label, openingDipCm:t.openingDipCm, closingDipCm:t.closingDipCm, purchase:t.purchase})) },
       parties: formState.parties.map(p => ({name:p.name, given:p.given, receivedCash:p.receivedCash, receivedAccount:p.receivedAccount, registerClosing:p.registerClosing})),
-      employees: formState.employees.map(em => ({name:em.name, given:em.given, received:em.received})),
+      employees: formState.employees.map(em => ({name:em.name, given:em.given, receivedCash:em.receivedCash, receivedDeduction:em.receivedDeduction})),
       digitalPayments: formState.digitalPayments.map(dp => ({mode:dp.mode, amount:dp.amount})),
       expenses: formState.expenses.map(ex => ({item:ex.item, amount:ex.amount})),
       selfUse: formState.selfUse.map(su => ({item:su.item, amount:su.amount})),
@@ -1931,7 +2077,7 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
         tanks: (e.diesel && e.diesel.tanks && e.diesel.tanks.length) ? e.diesel.tanks.map(t=>({label:t.label,openingDipCm:t.openingDipCm||'',closingDipCm:t.closingDipCm||'',purchase:t.purchase||''})) : [{label:'Tank 1',openingDipCm:'',closingDipCm:'',purchase:''}]
       };
       formState.parties = (e.parties || []).map(p => ({name:p.name||'', given:p.given||'', receivedCash: hasVal(p.receivedCash) || hasVal(p.receivedAccount) ? (p.receivedCash||'') : (p.received||''), receivedAccount: p.receivedAccount||'', registerClosing:p.registerClosing||''}));
-      formState.employees = (e.employees || []).map(em => ({name:em.name||'', given:em.given||'', received:em.received||''}));
+      formState.employees = (e.employees || []).map(em => ({name:em.name||'', given:em.given||'', receivedCash: hasVal(em.receivedCash) || hasVal(em.receivedDeduction) ? (em.receivedCash||'') : '', receivedDeduction: hasVal(em.receivedCash) || hasVal(em.receivedDeduction) ? (em.receivedDeduction||'') : (em.received||'')}));
       formState.cashDenominations = (e.cashDenominations || []).map(dn => ({note:dn.note||'', count:dn.count||''}));
       formState.digitalPayments = (e.digitalPayments || []).map(dp => ({mode:dp.mode||'', amount:dp.amount||''}));
       formState.expenses = (e.expenses && e.expenses.length) ? e.expenses.map(ex => ({item:ex.item||'', amount:ex.amount||''})) : (hasVal(e.kharch) ? [{item: e.kharchNote || 'Kharch', amount: e.kharch}] : []);
@@ -2339,14 +2485,14 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
       );
     }
 
-    if((data.employees || []).some(em => em.name || hasVal(em.given) || hasVal(em.received))){
+    if((data.employees || []).some(em => em.name || hasVal(em.given) || hasVal(em.receivedCash) || hasVal(em.receivedDeduction) || hasVal(em.received))){
       sectionTitle('Employee/Salesman Advance');
       table(
-        ['Employee', 'Advance Diya (Rs.)', 'Wapas/Kata (Rs.)', 'Opening (Rs.)', 'Closing (Rs.)'],
-        data.employees.filter(em => em.name || hasVal(em.given) || hasVal(em.received)).map(em => {
+        ['Employee', 'Advance Diya (Rs.)', 'Wapas Cash (Rs.)', 'Salary Se Kata (Rs.)', 'Opening (Rs.)', 'Closing (Rs.)'],
+        data.employees.filter(em => em.name || hasVal(em.given) || hasVal(em.receivedCash) || hasVal(em.receivedDeduction) || hasVal(em.received)).map(em => {
           const opening = getEmployeeBalanceBefore(em.name, date);
-          const closing = opening + num(em.given) - num(em.received);
-          return [em.name || '(bina naam)', fmtL(num(em.given)), fmtL(num(em.received)), fmtL(opening), fmtL(closing)];
+          const closing = opening + num(em.given) - employeeReceivedTotal(em);
+          return [em.name || '(bina naam)', fmtL(num(em.given)), fmtL(employeeReceivedCashOnly(em)), fmtL(employeeReceivedTotal(em) - employeeReceivedCashOnly(em)), fmtL(opening), fmtL(closing)];
         })
       );
     }
@@ -2391,7 +2537,9 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
       ['Udhaar Diya', '- ' + fmtRs(c.totalGiven)],
       ['Udhaar Wapas - Cash Mein', '+ ' + fmtRs(c.totalReceivedCash)],
       ['Udhaar Wapas - A/c Mein (cash mein nahi)', fmtRs(c.totalReceivedAccount)],
-      ['Employee Advance (Net: Wapas - Diya)', fmtRs(c.totalEmployeeReceived - c.totalEmployeeGiven)],
+      ['Employee Advance Diya', '- ' + fmtRs(c.totalEmployeeGiven)],
+      ['Employee Advance Wapas - Cash Mein', '+ ' + fmtRs(c.totalEmployeeReceivedCash)],
+      ['Employee Advance - Salary Se Kata (cash mein nahi)', fmtRs(c.totalEmployeeReceivedDeduction)],
       ['Digital Payments', '- ' + fmtRs(c.totalDigital)],
       ['Kharch', '- ' + fmtRs(c.kharch)],
       ['Self Use', '- ' + fmtRs(c.selfUseTotal)],
@@ -2428,7 +2576,6 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
       }
       plRows.push(['Total Margin', fmtRs(c.margin)]);
       plRows.push(['Kharch', '- ' + fmtRs(c.kharch)]);
-      plRows.push(['Self Use', '- ' + fmtRs(c.selfUseTotal)]);
       plRows.push([c.netProfit < 0 ? 'Net Loss' : 'Net Profit', fmtRs(Math.abs(c.netProfit))]);
       table([], plRows, {
         theme: 'plain',
@@ -2498,6 +2645,138 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
   }
 
   // ---------- Party / Employee ledger statement (date-wise, all-time) ----------
+  // ---------- Monthly/Yearly Profit-Loss report PDF ----------
+  function generatePLReportPdf(){
+    if(typeof window.jspdf === 'undefined'){ showToast('PDF banane wala library load nahi ho payi. Internet check karein.', true); return; }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    const marginX = 40;
+    let y = 40;
+    const DARK_RGB = [30, 40, 45];
+    const PETROL_RGB = [198, 138, 61];
+    const LIGHT_ROW_RGB = [247, 244, 237];
+
+    function sectionTitle(text, accentRgb){
+      doc.setFillColor(accentRgb ? accentRgb[0] : DARK_RGB[0], accentRgb ? accentRgb[1] : DARK_RGB[1], accentRgb ? accentRgb[2] : DARK_RGB[2]);
+      doc.rect(marginX, y, 4, 14, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.setTextColor(DARK_RGB[0], DARK_RGB[1], DARK_RGB[2]);
+      doc.text(text, marginX + 10, y + 11);
+      y += 22;
+    }
+    function table(head, body, opts){
+      const config = Object.assign({
+        body: body, startY: y, margin: { left: marginX, right: marginX }, theme: 'grid',
+        styles: { font: 'helvetica', fontSize: 9.5, cellPadding: 5, textColor: DARK_RGB },
+        headStyles: { fillColor: DARK_RGB, textColor: 255, fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: LIGHT_ROW_RGB }
+      }, opts || {});
+      if(head && head.length) config.head = [head];
+      doc.autoTable(config);
+      y = doc.lastAutoTable.finalY + 18;
+    }
+
+    const pumpName = ($('pumpNameInput').value || '').trim();
+    const isYearly = plMode === 'yearly';
+    const periodLabel = isYearly ? String(plYear) : (HI_MONTHS[currentMonth.getMonth()] + ' ' + currentMonth.getFullYear());
+    const entries = isYearly ? entriesForYear(plYear) : entriesForCurrentMonth();
+    const t = aggregatePL(entries);
+
+    doc.setFillColor(DARK_RGB[0], DARK_RGB[1], DARK_RGB[2]);
+    doc.rect(0, 0, pageW, 62, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    doc.text(pumpName || 'Pump Hisab', marginX, 30);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10.5);
+    doc.text((isYearly ? 'Yearly' : 'Monthly') + ' Profit / Loss Report', marginX, 46);
+    doc.setFontSize(11);
+    doc.text(periodLabel, pageW - marginX, 38, { align: 'right' });
+    doc.setTextColor(DARK_RGB[0], DARK_RGB[1], DARK_RGB[2]);
+    y = 84;
+
+    sectionTitle('Summary', PETROL_RGB);
+    const summaryRows = [
+      ['Total Sale', fmtRs(t.totalSale)],
+      ['Total Kharch', '- ' + fmtRs(t.totalKharch)],
+      ['Total Self Use', '- ' + fmtRs(t.totalSelfUse)],
+      ['Net Cash Collected', fmtRs(t.totalCash)]
+    ];
+    if(t.anyMargin){
+      summaryRows.push(['Total Margin (Petrol+Diesel)', fmtRs(t.totalMargin)]);
+      summaryRows.push([t.netProfit < 0 ? 'Net Loss' : 'Net Profit', fmtRs(Math.abs(t.netProfit))]);
+    }
+    table([], summaryRows, {
+      theme: 'plain',
+      styles: { fontSize: 11, cellPadding: 6 },
+      columnStyles: { 0: { fontStyle: 'bold' }, 1: { halign: 'right' } },
+      didParseCell: function(hookData){
+        const label = hookData.row.raw[0];
+        if(label === 'Net Cash Collected' || label === 'Net Profit' || label === 'Net Loss'){
+          hookData.cell.styles.fontStyle = 'bold';
+          hookData.cell.styles.fontSize = 12.5;
+        }
+      }
+    });
+
+    if(!t.anyMargin){
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9.5);
+      doc.setTextColor(120);
+      doc.text('Note: Cost Rate kisi entry mein nahi bhara gaya, isliye Profit/Loss calculate nahi ho paya.', marginX, y);
+      doc.setTextColor(DARK_RGB[0], DARK_RGB[1], DARK_RGB[2]);
+      y += 20;
+    }
+
+    if(isYearly){
+      const monthRows = [];
+      for(let m = 0; m < 12; m++){
+        const me = entriesForYearMonth(plYear, m);
+        if(me.length === 0) continue;
+        const mt = aggregatePL(me);
+        monthRows.push([
+          HI_MONTHS[m],
+          fmtL(mt.totalSale),
+          fmtL(mt.totalKharch),
+          mt.anyMargin ? fmtL(mt.netProfit) : '—'
+        ]);
+      }
+      if(monthRows.length){
+        if(y + 30 > doc.internal.pageSize.getHeight() - 40){ doc.addPage(); y = 40; }
+        sectionTitle('Month-wise Breakdown', DARK_RGB);
+        table(
+          ['Mahina', 'Sale (Rs.)', 'Kharch (Rs.)', 'Net P/L (Rs.)'],
+          monthRows,
+          { columnStyles: { 0: { fontStyle: 'bold' } } }
+        );
+      }
+    }
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text('Generated by Pump Hisab app', marginX, doc.internal.pageSize.getHeight() - 20);
+
+    const fileName = 'pump-hisab-' + (isYearly ? 'yearly-' + plYear : 'monthly-' + monthKey(currentMonth)) + '.pdf';
+    try{
+      const blobUrl = doc.output('bloburl');
+      const win = window.open(blobUrl, '_blank');
+      if(!win){ throw new Error('popup blocked'); }
+      showToast('PDF naye tab mein khul gaya.');
+    }catch(err){
+      try{
+        doc.save(fileName);
+        showToast('PDF download ho raha hai.');
+      }catch(err2){
+        showToast('PDF nahi ban paya. Thumbs-down se Anthropic ko batayein.', true);
+      }
+    }
+  }
+
+
   function generatePartyLedgerPdf(name, kind){
     if(!name) return;
     if(typeof window.jspdf === 'undefined'){ showToast('PDF banane wala library load nahi ho payi. Internet check karein.', true); return; }
@@ -2549,17 +2828,17 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
       list.forEach(item => {
         if((item.name || '').trim().toLowerCase() !== key) return;
         const given = num(item.given);
-        const receivedCash = isEmployee ? num(item.received) : partyReceivedCashOnly(item);
-        const receivedAccount = isEmployee ? 0 : (partyReceivedTotal(item) - partyReceivedCashOnly(item));
-        const receivedTotal = receivedCash + receivedAccount;
+        const receivedCash = isEmployee ? employeeReceivedCashOnly(item) : partyReceivedCashOnly(item);
+        const receivedSecondary = isEmployee ? (employeeReceivedTotal(item) - employeeReceivedCashOnly(item)) : (partyReceivedTotal(item) - partyReceivedCashOnly(item));
+        const receivedTotal = receivedCash + receivedSecondary;
         if(given === 0 && receivedTotal === 0) return;
         running += given - receivedTotal;
         const dt = new Date(d + 'T00:00:00');
         const dLabel = dt.getDate() + ' ' + HI_MONTHS[dt.getMonth()] + ' ' + dt.getFullYear();
         if(isEmployee){
-          rows.push([dLabel, given ? fmtL(given) : '-', receivedCash ? fmtL(receivedCash) : '-', fmtL(running)]);
+          rows.push([dLabel, given ? fmtL(given) : '-', receivedCash ? fmtL(receivedCash) : '-', receivedSecondary ? fmtL(receivedSecondary) : '-', fmtL(running)]);
         } else {
-          rows.push([dLabel, given ? fmtL(given) : '-', receivedCash ? fmtL(receivedCash) : '-', receivedAccount ? fmtL(receivedAccount) : '-', fmtL(running)]);
+          rows.push([dLabel, given ? fmtL(given) : '-', receivedCash ? fmtL(receivedCash) : '-', receivedSecondary ? fmtL(receivedSecondary) : '-', fmtL(running)]);
         }
       });
     });
@@ -2591,7 +2870,7 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
     } else {
       table(
         isEmployee
-          ? ['Date', 'Advance Diya (Rs.)', 'Wapas/Kata (Rs.)', 'Balance (Rs.)']
+          ? ['Date', 'Advance Diya (Rs.)', 'Wapas Cash (Rs.)', 'Salary Se Kata (Rs.)', 'Balance (Rs.)']
           : ['Date', 'Diya (Rs.)', 'Wapas Cash (Rs.)', 'Wapas A/c (Rs.)', 'Balance (Rs.)'],
         rows,
         { columnStyles: { 0: { fontStyle: 'bold' } } }
@@ -2758,8 +3037,10 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
     if(!Array.isArray(arr)) return null;
     const cleaned = arr.map(em => ({
       name: (em && em.name && String(em.name).trim()) || '',
-      given: sanitizeNumber(em && em.given), received: sanitizeNumber(em && em.received)
-    })).filter(em => em.name || em.given !== '' || em.received !== '');
+      given: sanitizeNumber(em && em.given),
+      receivedCash: sanitizeNumber(em && em.receivedCash),
+      receivedDeduction: sanitizeNumber(em && (em.receivedDeduction !== undefined ? em.receivedDeduction : em.received))
+    })).filter(em => em.name || em.given !== '' || em.receivedCash !== '' || em.receivedDeduction !== '');
     return cleaned.length ? cleaned : null;
   }
 
@@ -3042,7 +3323,7 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
       updateLivePreview();
     }
     if(e.target.id === 'addEmployeeBtn'){
-      formState.employees.push({name:'', given:'', received:''});
+      formState.employees.push({name:'', given:'', receivedCash:'', receivedDeduction:''});
       renderEmployees();
       updateLivePreview();
     }
@@ -3156,6 +3437,21 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
   });
   $('prevMonth').addEventListener('click', () => { currentMonth.setMonth(currentMonth.getMonth()-1); renderAll(); });
   $('nextMonth').addEventListener('click', () => { currentMonth.setMonth(currentMonth.getMonth()+1); renderAll(); });
+  $('plMonthlyBtn').addEventListener('click', () => {
+    plMode = 'monthly';
+    $('plMonthlyBtn').classList.add('active');
+    $('plYearlyBtn').classList.remove('active');
+    renderPLReport();
+  });
+  $('plYearlyBtn').addEventListener('click', () => {
+    plMode = 'yearly';
+    $('plYearlyBtn').classList.add('active');
+    $('plMonthlyBtn').classList.remove('active');
+    renderPLReport();
+  });
+  $('plPrevYear').addEventListener('click', () => { plYear -= 1; renderPLReport(); });
+  $('plNextYear').addEventListener('click', () => { plYear += 1; renderPLReport(); });
+  $('plPdfBtn').addEventListener('click', generatePLReportPdf);
   $('cloudTestBtn').addEventListener('click', testCloudConnectivity);
   $('cloudSaveBtn').addEventListener('click', saveToCloud);
   $('cloudLoadBtn').addEventListener('click', loadFromCloud);
