@@ -899,13 +899,13 @@
     return balance;
   }
 
-  function getAllPartyBalances(){
+  function getAllPartyBalances(asOfDate){
     const balances = {};
     Object.keys(partyOpeningBalances).forEach(key => {
       if(partyOpeningBalances[key]) balances[key] = partyOpeningBalances[key];
     });
     const displayNames = {};
-    Object.keys(allEntries).sort().forEach(d => {
+    Object.keys(allEntries).filter(d => !asOfDate || d <= asOfDate).sort().forEach(d => {
       (allEntries[d].parties || []).forEach(pt => {
         const rawName = (pt.name || '').trim();
         if(!rawName) return;
@@ -973,13 +973,13 @@
     return balance;
   }
 
-  function getAllEmployeeBalances(){
+  function getAllEmployeeBalances(asOfDate){
     const balances = {};
     Object.keys(employeeOpeningBalances).forEach(key => {
       if(employeeOpeningBalances[key]) balances[key] = employeeOpeningBalances[key];
     });
     const displayNames = {};
-    Object.keys(allEntries).sort().forEach(d => {
+    Object.keys(allEntries).filter(d => !asOfDate || d <= asOfDate).sort().forEach(d => {
       (allEntries[d].employees || []).forEach(em => {
         const rawName = (em.name || '').trim();
         if(!rawName) return;
@@ -2591,24 +2591,24 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
       });
     }
 
-    // ---- All Creditors - Current Closing Balance (as of this date) ----
-    const allBalances = getAllPartyBalances();
+    // ---- All Creditors - Closing Balance as of this date ----
+    const allBalances = getAllPartyBalances(date);
     const balanceNames = Object.keys(allBalances).filter(n => Math.abs(allBalances[n]) > 0.5).sort((a,b) => allBalances[b] - allBalances[a]);
     if(balanceNames.length){
       if(y + 60 > doc.internal.pageSize.getHeight() - 40){ doc.addPage(); y = 40; }
-      sectionTitle('All Creditors - Current Closing Balance');
+      sectionTitle('All Creditors - Closing Balance (' + dateLabel + ')');
       table(
         ['Party', 'Closing Balance (Rs.)'],
         balanceNames.map(n => [n, fmtL(allBalances[n])])
       );
     }
 
-    // ---- All Employees - Current Closing Balance ----
-    const allEmpBalances = getAllEmployeeBalances();
+    // ---- All Employees - Closing Balance as of this date ----
+    const allEmpBalances = getAllEmployeeBalances(date);
     const empBalanceNames = Object.keys(allEmpBalances).filter(n => Math.abs(allEmpBalances[n]) > 0.5).sort((a,b) => allEmpBalances[b] - allEmpBalances[a]);
     if(empBalanceNames.length){
       if(y + 60 > doc.internal.pageSize.getHeight() - 40){ doc.addPage(); y = 40; }
-      sectionTitle('All Employees - Current Advance Balance');
+      sectionTitle('All Employees - Advance Balance (' + dateLabel + ')');
       table(
         ['Employee', 'Advance Balance (Rs.)'],
         empBalanceNames.map(n => [n, fmtL(allEmpBalances[n])])
