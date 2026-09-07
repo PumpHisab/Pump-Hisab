@@ -667,6 +667,22 @@
   function num(v){ const n = parseFloat(v); return isNaN(n) ? 0 : n; }
   function hasVal(v){ return v !== undefined && v !== null && v !== ''; }
 
+  // Party "wapas" can come as cash or straight to bank A/c. New records use
+  // receivedCash/receivedAccount; old records (before this split existed) just
+  // have a single "received" field, which we treat as cash for backward compat.
+  function partyReceivedTotal(pt){
+    if(hasVal(pt.receivedCash) || hasVal(pt.receivedAccount)){
+      return num(pt.receivedCash) + num(pt.receivedAccount);
+    }
+    return num(pt.received);
+  }
+  function partyReceivedCashOnly(pt){
+    if(hasVal(pt.receivedCash) || hasVal(pt.receivedAccount)){
+      return num(pt.receivedCash);
+    }
+    return num(pt.received);
+  }
+
   async function loadAllEntries(){
     try{
       const listRes = await storage.list('entry:');
@@ -749,12 +765,17 @@
     const digitalItems = e.digitalPayments || [];
     const totalDigital = digitalItems.reduce((sum, dp) => sum + num(dp.amount), 0);
     const parties = e.parties || [];
-    let totalGiven = 0, totalReceived = 0;
-    parties.forEach(pt => { totalGiven += num(pt.given); totalReceived += num(pt.received); });
+    let totalGiven = 0, totalReceived = 0, totalReceivedCash = 0, totalReceivedAccount = 0;
+    parties.forEach(pt => {
+      totalGiven += num(pt.given);
+      totalReceived += partyReceivedTotal(pt);
+      totalReceivedCash += partyReceivedCashOnly(pt);
+      totalReceivedAccount += partyReceivedTotal(pt) - partyReceivedCashOnly(pt);
+    });
     const employees = e.employees || [];
     let totalEmployeeGiven = 0, totalEmployeeReceived = 0;
     employees.forEach(em => { totalEmployeeGiven += num(em.given); totalEmployeeReceived += num(em.received); });
-    const computedCash = totalSale - totalGiven + totalReceived - totalEmployeeGiven + totalEmployeeReceived - totalDigital - kharch - selfUseTotal;
+    const computedCash = totalSale - totalGiven + totalReceivedCash - totalEmployeeGiven + totalEmployeeReceived - totalDigital - kharch - selfUseTotal;
     const hasActualCash = hasVal(e.cashActual);
     const actualCash = hasActualCash ? num(e.cashActual) : null;
     const hasMargin = p.hasCost || d.hasCost;
@@ -765,7 +786,7 @@
     denoms.forEach(dn => { if(hasVal(dn.note) || hasVal(dn.count)) hasDenomData = true; denomTotal += num(dn.note) * num(dn.count); });
     const cashMismatch = hasActualCash ? Math.abs(computedCash - actualCash) > 2 : false;
     const cashDiff = hasActualCash ? (actualCash - computedCash) : null;
-    return { p, d, totalSale, kharch, selfUseTotal, totalDigital, totalGiven, totalReceived, totalEmployeeGiven, totalEmployeeReceived, computedCash, hasActualCash, actualCash, hasMargin, margin, netProfit, denomTotal, hasDenomData, cashMismatch, cashDiff };
+    return { p, d, totalSale, kharch, selfUseTotal, totalDigital, totalGiven, totalReceived, totalReceivedCash, totalReceivedAccount, totalEmployeeGiven, totalEmployeeReceived, computedCash, hasActualCash, actualCash, hasMargin, margin, netProfit, denomTotal, hasDenomData, cashMismatch, cashDiff };
   }
 
   // ---------- Historical lookups for auto-verification ----------
@@ -832,7 +853,7 @@
     dates.forEach(d => {
       (allEntries[d].parties || []).forEach(pt => {
         if((pt.name || '').trim().toLowerCase() === key){
-          balance += num(pt.given) - num(pt.received);
+          balance += num(pt.given) - partyReceivedTotal(pt);
         }
       });
     });
@@ -851,7 +872,7 @@
         if(!rawName) return;
         const key = rawName.toLowerCase();
         displayNames[key] = rawName;
-        balances[key] = (balances[key] || 0) + num(pt.given) - num(pt.received);
+        balances[key] = (balances[key] || 0) + num(pt.given) - partyReceivedTotal(pt);
       });
     });
     // Re-key by display name (prefer a real transaction's casing over the raw lowercase key)
@@ -977,7 +998,7 @@
     for(const pt of (data.parties || [])){
       if(!pt.name || !hasVal(pt.registerClosing)) continue;
       const opening = getPartyBalanceBefore(pt.name, date);
-      const computedClosing = opening + num(pt.given) - num(pt.received);
+      const computedClosing = opening + num(pt.given) - partyReceivedTotal(pt);
       if(Math.abs(num(pt.registerClosing) - computedClosing) > 1) return true;
     }
     // cash mismatch check
@@ -1611,9 +1632,10 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
           <input type="text" class="party-name" list="knownPartyNames" data-idx="${i}" value="${pt.name || ''}" placeholder="Party ka naam">
           <button type="button" class="party-remove" data-idx="${i}">Hatao</button>
         </div>
+        <div class="field-row"><label>Naya Udhaar Diya ₹</label><input type="number" inputmode="decimal" class="party-input" data-field="given" data-idx="${i}" value="${pt.given}" placeholder="0"></div>
         <div class="two-col">
-          <div class="field-row"><label>Naya Udhaar Diya ₹</label><input type="number" inputmode="decimal" class="party-input" data-field="given" data-idx="${i}" value="${pt.given}" placeholder="0"></div>
-          <div class="field-row"><label>Wapas Mila ₹</label><input type="number" inputmode="decimal" class="party-input" data-field="received" data-idx="${i}" value="${pt.received}" placeholder="0"></div>
+          <div class="field-row"><label>Wapas Cash Mein ₹</label><input type="number" inputmode="decimal" class="party-input" data-field="receivedCash" data-idx="${i}" value="${pt.receivedCash}" placeholder="0"></div>
+          <div class="field-row"><label>Wapas A/c Mein ₹</label><input type="number" inputmode="decimal" class="party-input" data-field="receivedAccount" data-idx="${i}" value="${pt.receivedAccount}" placeholder="0"></div>
         </div>
         <div class="field-row"><label>Register Mein Likha Closing ₹ (optional, check ke liye)</label><input type="number" inputmode="decimal" class="party-input" data-field="registerClosing" data-idx="${i}" value="${pt.registerClosing}" placeholder="Khaali chhod sakte hain"></div>
         <div class="party-live" data-party-live="${i}"></div>
@@ -1632,7 +1654,7 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
         return;
       }
       const opening = getPartyBalanceBefore(pt.name, currentDate);
-      const computedClosing = opening + num(pt.given) - num(pt.received);
+      const computedClosing = opening + num(pt.given) - partyReceivedTotal(pt);
       let html = `Opening: <b>${fmtINR(opening)}</b> &nbsp;→&nbsp; Closing: <b>${fmtINR(computedClosing)}</b>`;
       const registerClosingEl = document.querySelector(`.party-input[data-field="registerClosing"][data-idx="${i}"]`);
       if(hasVal(pt.registerClosing)){
@@ -1805,7 +1827,8 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
       <div class="live-row"><span class="k">Diesel Sale</span><span class="v">${fmtINR(c.d.sale)}</span></div>
       <div class="live-row"><span class="k">Kul Sale</span><span class="v">${fmtINR(c.totalSale)}</span></div>
       <div class="live-row"><span class="k">Naya Udhaar (Diya)</span><span class="v">- ${fmtINR(c.totalGiven)}</span></div>
-      <div class="live-row"><span class="k">Udhaar Wapas (Mila)</span><span class="v">+ ${fmtINR(c.totalReceived)}</span></div>
+      <div class="live-row"><span class="k">Udhaar Wapas - Cash Mein</span><span class="v">+ ${fmtINR(c.totalReceivedCash)}</span></div>
+      <div class="live-row"><span class="k">Udhaar Wapas - A/c Mein</span><span class="v">${fmtINR(c.totalReceivedAccount)} (cash mein nahi juda)</span></div>
       <div class="live-row"><span class="k">Employee Advance (Diya)</span><span class="v">- ${fmtINR(c.totalEmployeeGiven)}</span></div>
       <div class="live-row"><span class="k">Employee Advance (Wapas)</span><span class="v">+ ${fmtINR(c.totalEmployeeReceived)}</span></div>
       <div class="live-row"><span class="k">Digital Payments</span><span class="v">- ${fmtINR(c.totalDigital)}</span></div>
@@ -1850,7 +1873,7 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
     return {
       petrol: { rate: $('petrolRate').value, cost: $('petrolCost').value, nozzles: formState.petrol.nozzles.map(n => ({label:n.label, opening:n.opening, closing:n.closing, testing:n.testing})), tanks: formState.petrol.tanks.map(t => ({label:t.label, openingDipCm:t.openingDipCm, closingDipCm:t.closingDipCm, purchase:t.purchase})) },
       diesel: { rate: $('dieselRate').value, cost: $('dieselCost').value, nozzles: formState.diesel.nozzles.map(n => ({label:n.label, opening:n.opening, closing:n.closing, testing:n.testing})), tanks: formState.diesel.tanks.map(t => ({label:t.label, openingDipCm:t.openingDipCm, closingDipCm:t.closingDipCm, purchase:t.purchase})) },
-      parties: formState.parties.map(p => ({name:p.name, given:p.given, received:p.received, registerClosing:p.registerClosing})),
+      parties: formState.parties.map(p => ({name:p.name, given:p.given, receivedCash:p.receivedCash, receivedAccount:p.receivedAccount, registerClosing:p.registerClosing})),
       employees: formState.employees.map(em => ({name:em.name, given:em.given, received:em.received})),
       digitalPayments: formState.digitalPayments.map(dp => ({mode:dp.mode, amount:dp.amount})),
       expenses: formState.expenses.map(ex => ({item:ex.item, amount:ex.amount})),
@@ -1907,7 +1930,7 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
         nozzles: (e.diesel && e.diesel.nozzles && e.diesel.nozzles.length) ? e.diesel.nozzles.map(n=>({label:n.label,opening:n.opening||'',closing:n.closing||'',testing:n.testing||''})) : [{label:'Nozzle 1',opening:'',closing:'',testing:''}],
         tanks: (e.diesel && e.diesel.tanks && e.diesel.tanks.length) ? e.diesel.tanks.map(t=>({label:t.label,openingDipCm:t.openingDipCm||'',closingDipCm:t.closingDipCm||'',purchase:t.purchase||''})) : [{label:'Tank 1',openingDipCm:'',closingDipCm:'',purchase:''}]
       };
-      formState.parties = (e.parties || []).map(p => ({name:p.name||'', given:p.given||'', received:p.received||'', registerClosing:p.registerClosing||''}));
+      formState.parties = (e.parties || []).map(p => ({name:p.name||'', given:p.given||'', receivedCash: hasVal(p.receivedCash) || hasVal(p.receivedAccount) ? (p.receivedCash||'') : (p.received||''), receivedAccount: p.receivedAccount||'', registerClosing:p.registerClosing||''}));
       formState.employees = (e.employees || []).map(em => ({name:em.name||'', given:em.given||'', received:em.received||''}));
       formState.cashDenominations = (e.cashDenominations || []).map(dn => ({note:dn.note||'', count:dn.count||''}));
       formState.digitalPayments = (e.digitalPayments || []).map(dp => ({mode:dp.mode||'', amount:dp.amount||''}));
@@ -2304,14 +2327,14 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
       y += 4;
     });
 
-    if((data.parties || []).some(pt => pt.name || hasVal(pt.given) || hasVal(pt.received))){
+    if((data.parties || []).some(pt => pt.name || hasVal(pt.given) || hasVal(pt.receivedCash) || hasVal(pt.receivedAccount) || hasVal(pt.received))){
       sectionTitle('Creditors (Udhaar)');
       table(
-        ['Party', 'Diya (Rs.)', 'Wapas (Rs.)', 'Opening (Rs.)', 'Closing (Rs.)'],
-        data.parties.filter(pt => pt.name || hasVal(pt.given) || hasVal(pt.received)).map(pt => {
+        ['Party', 'Diya (Rs.)', 'Wapas Cash (Rs.)', 'Wapas A/c (Rs.)', 'Opening (Rs.)', 'Closing (Rs.)'],
+        data.parties.filter(pt => pt.name || hasVal(pt.given) || hasVal(pt.receivedCash) || hasVal(pt.receivedAccount) || hasVal(pt.received)).map(pt => {
           const opening = getPartyBalanceBefore(pt.name, date);
-          const closing = opening + num(pt.given) - num(pt.received);
-          return [pt.name || '(bina naam)', fmtL(num(pt.given)), fmtL(num(pt.received)), fmtL(opening), fmtL(closing)];
+          const closing = opening + num(pt.given) - partyReceivedTotal(pt);
+          return [pt.name || '(bina naam)', fmtL(num(pt.given)), fmtL(partyReceivedCashOnly(pt)), fmtL(partyReceivedTotal(pt) - partyReceivedCashOnly(pt)), fmtL(opening), fmtL(closing)];
         })
       );
     }
@@ -2365,7 +2388,9 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
     sectionTitle('Final Summary', DARK_RGB);
     const summaryRows = [
       ['Total Sale', fmtRs(c.totalSale)],
-      ['Udhaar (Net: Wapas - Diya)', fmtRs(c.totalReceived - c.totalGiven)],
+      ['Udhaar Diya', '- ' + fmtRs(c.totalGiven)],
+      ['Udhaar Wapas - Cash Mein', '+ ' + fmtRs(c.totalReceivedCash)],
+      ['Udhaar Wapas - A/c Mein (cash mein nahi)', fmtRs(c.totalReceivedAccount)],
       ['Employee Advance (Net: Wapas - Diya)', fmtRs(c.totalEmployeeReceived - c.totalEmployeeGiven)],
       ['Digital Payments', '- ' + fmtRs(c.totalDigital)],
       ['Kharch', '- ' + fmtRs(c.kharch)],
@@ -2523,12 +2548,19 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
       const list = isEmployee ? (allEntries[d].employees || []) : (allEntries[d].parties || []);
       list.forEach(item => {
         if((item.name || '').trim().toLowerCase() !== key) return;
-        const given = num(item.given), received = num(item.received);
-        if(given === 0 && received === 0) return;
-        running += given - received;
+        const given = num(item.given);
+        const receivedCash = isEmployee ? num(item.received) : partyReceivedCashOnly(item);
+        const receivedAccount = isEmployee ? 0 : (partyReceivedTotal(item) - partyReceivedCashOnly(item));
+        const receivedTotal = receivedCash + receivedAccount;
+        if(given === 0 && receivedTotal === 0) return;
+        running += given - receivedTotal;
         const dt = new Date(d + 'T00:00:00');
         const dLabel = dt.getDate() + ' ' + HI_MONTHS[dt.getMonth()] + ' ' + dt.getFullYear();
-        rows.push([dLabel, given ? fmtL(given) : '-', received ? fmtL(received) : '-', fmtL(running)]);
+        if(isEmployee){
+          rows.push([dLabel, given ? fmtL(given) : '-', receivedCash ? fmtL(receivedCash) : '-', fmtL(running)]);
+        } else {
+          rows.push([dLabel, given ? fmtL(given) : '-', receivedCash ? fmtL(receivedCash) : '-', receivedAccount ? fmtL(receivedAccount) : '-', fmtL(running)]);
+        }
       });
     });
 
@@ -2558,7 +2590,9 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
       y += 20;
     } else {
       table(
-        ['Date', isEmployee ? 'Advance Diya (Rs.)' : 'Diya (Rs.)', isEmployee ? 'Wapas/Kata (Rs.)' : 'Wapas (Rs.)', 'Balance (Rs.)'],
+        isEmployee
+          ? ['Date', 'Advance Diya (Rs.)', 'Wapas/Kata (Rs.)', 'Balance (Rs.)']
+          : ['Date', 'Diya (Rs.)', 'Wapas Cash (Rs.)', 'Wapas A/c (Rs.)', 'Balance (Rs.)'],
         rows,
         { columnStyles: { 0: { fontStyle: 'bold' } } }
       );
@@ -2601,7 +2635,7 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
 Photo ko dhyan se padho aur neeche diye JSON schema mein data bharo:
 - Har fuel ke jitne nozzle register mein dikh rahe hain, unki opening, closing, testing reading aur agar dikhe to unka box-number label alag array mein do.
 - Agar register mein tank ka dip reading likha hai, use "petrolTanks"/"dieselTanks" array mein daalo — openingDipCm aur closingDipCm mein wahi cm wali raw dip value daalo jaisi register mein likhi hai (litres mein convert MAT karo, hum wo alag se karte hain). purchase field mein sirf agar litres mein tanker se aaya fuel likha ho to daalo. Agar ek se zyada tank hain to har tank ka alag object banao.
-- Har customer jiska fuel/goods ka udhaar ka naam ya hisab dikh raha hai (jaise koi grahak jisne credit par petrol/diesel liya), use "parties" array mein daalo: naam, naya udhaar diya gaya amount, wapas mila amount, aur agar register mein us party ka closing/balance figure likha ho to registerClosing mein daalo.
+- Har customer jiska fuel/goods ka udhaar ka naam ya hisab dikh raha hai (jaise koi grahak jisne credit par petrol/diesel liya), use "parties" array mein daalo: naam, naya udhaar diya gaya amount, aur wapas mila amount — agar register mein saaf likha ho ki wapas ka paisa cash mein mila ya bank A/c mein aaya, to receivedCash ya receivedAccount mein sahi jagah daalo; agar sirf ek total likha hai aur mode clear nahi hai, to use receivedCash mein daalo. Agar register mein us party ka closing/balance figure likha ho to registerClosing mein daalo.
 - Agar register mein pump ke apne staff/employee/salesman ka salary advance likha hai (jaise "commission sardar", naam ke saath "shesh"/balance jo salary se katega), use "employees" array mein daalo: naam, advance diya gaya amount, wapas/salary se kata gaya amount. Ye customer credit se bilkul alag hai — parties array mein mat daalo.
 - Agar register mein neeche cash note/coin ginti likhi hai (jaise "500×123", "200×24" — note ki value × kitni ginti), use "cashDenominations" array mein daalo: note mein note/coin ki value (jaise 500, 200, 100, 50), count mein kitni ginti hai.
 - Har kharch item ko "expenses" array mein alag-alag daalo — item mein us kharch ka naam (jaise "paani wale", "dhaba"), amount mein uski value. Ek lump total mat banao, jitne bhi alag-alag kharch dikh rahe hain sabko alag object mein do.
@@ -2611,7 +2645,7 @@ Photo ko dhyan se padho aur neeche diye JSON schema mein data bharo:
 
 Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na extra text:
 
-{"date":"","petrolRate":"","petrolCost":"","petrolNozzles":[{"label":"","opening":"","closing":"","testing":""}],"petrolTanks":[{"label":"","openingDipCm":"","closingDipCm":"","purchase":""}],"dieselRate":"","dieselCost":"","dieselNozzles":[{"label":"","opening":"","closing":"","testing":""}],"dieselTanks":[{"label":"","openingDipCm":"","closingDipCm":"","purchase":""}],"parties":[{"name":"","given":"","received":"","registerClosing":""}],"employees":[{"name":"","given":"","received":""}],"cashDenominations":[{"note":"","count":""}],"expenses":[{"item":"","amount":""}],"digitalPayments":[{"mode":"","amount":""}],"confidence_note":""}`;
+{"date":"","petrolRate":"","petrolCost":"","petrolNozzles":[{"label":"","opening":"","closing":"","testing":""}],"petrolTanks":[{"label":"","openingDipCm":"","closingDipCm":"","purchase":""}],"dieselRate":"","dieselCost":"","dieselNozzles":[{"label":"","opening":"","closing":"","testing":""}],"dieselTanks":[{"label":"","openingDipCm":"","closingDipCm":"","purchase":""}],"parties":[{"name":"","given":"","receivedCash":"","receivedAccount":"","registerClosing":""}],"employees":[{"name":"","given":"","received":""}],"cashDenominations":[{"note":"","count":""}],"expenses":[{"item":"","amount":""}],"digitalPayments":[{"mode":"","amount":""}],"confidence_note":""}`;
 
   function readFileAsDataUrl(file){
     return new Promise((resolve, reject) => {
@@ -2712,8 +2746,11 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
     if(!Array.isArray(arr)) return null;
     const cleaned = arr.map(p => ({
       name: (p && p.name && String(p.name).trim()) || '',
-      given: sanitizeNumber(p && p.given), received: sanitizeNumber(p && p.received), registerClosing: sanitizeNumber(p && p.registerClosing)
-    })).filter(p => p.name || p.given !== '' || p.received !== '' || p.registerClosing !== '');
+      given: sanitizeNumber(p && p.given),
+      receivedCash: sanitizeNumber(p && (p.receivedCash !== undefined ? p.receivedCash : p.received)),
+      receivedAccount: sanitizeNumber(p && p.receivedAccount),
+      registerClosing: sanitizeNumber(p && p.registerClosing)
+    })).filter(p => p.name || p.given !== '' || p.receivedCash !== '' || p.receivedAccount !== '' || p.registerClosing !== '');
     return cleaned.length ? cleaned : null;
   }
 
@@ -2994,7 +3031,7 @@ Sirf yeh JSON object return karo — na koi explanation, na markdown fence, na e
       });
     }
     if(e.target.id === 'addPartyBtn'){
-      formState.parties.push({name:'', given:'', received:'', registerClosing:''});
+      formState.parties.push({name:'', given:'', receivedCash:'', receivedAccount:'', registerClosing:''});
       renderParties();
       updateLivePreview();
     }
